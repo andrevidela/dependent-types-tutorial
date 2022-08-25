@@ -206,8 +206,7 @@ The following tests should pass:
 
 -- normalCat : File0.concat [1,2,3][4,5,6] === [1,2,3,4,5,6]
 -- normalCat = Refl
-
-```idris
+```
 
 ### List access
 
