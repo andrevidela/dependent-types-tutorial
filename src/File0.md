@@ -32,8 +32,10 @@ We will see how this is a very useful data structure for dependent types.
 Here is a definition of lists:
 
 ```idris
-data List a = Empty
-            | Node a (List a)
+namespace List
+  public export
+  data List a = Nil
+              | (::) a (List a)
 ```
 
 This defines a list with two constructors, either the list is empty (`Nil`) or the list is
@@ -45,8 +47,8 @@ Functions are written like this:
 
 ```idris
 length : List a -> Nat
-length Empty = Z
-length (Node x xs) = S (length xs)
+length Nil = Z
+length (x :: xs) = S (length xs)
 ```
 
 `length : List a -> Nat` declares the name and type of the function, here it takes a `List` and returns a `Nat`.
@@ -135,11 +137,77 @@ myVect2 = [0, 1, 2, 3]
 
 # Exercises
 
+This tutorial series will be very focused on exercises, and that is why it is written in a literate style. This way
+you can open this file in your favorite editor with Idris2 support and start playing with the examples. The exercises
+have a correction, but don't let it influence your achievements too much. If you managed to make the program that was
+asked for, and the tests pass, then you deserve full credit.
+
+## Exercises: Lists
+
+### List notation, namespaces & exports
+
+Go back to your existing definition of `List` and change the name of the constructors to use `Nil` and `(::)` in order to
+enable the list syntax sugar. If you do this without any further changes you will get an error (actually a lot of errors).
+
+Those are due to the name clash between the constructors for `List` and the constructors for `Vect`, they are both `Nil` and
+`(::)`. To resolve this issue, you will have to place them in different _namespaces_ in order to allow idris to disambiguate
+between the two. To use a namespace, write `namespace` at the top level and indent the definitions that will living within the
+namespace. The namespace also needs a name, pick one that captures the kind of content you would find within it.
+
+For examples if you have
+
+    definition1
+    definition2
+
+And you want to put them in a namespace, do:
+
+    namespace MyDefinitions
+        definition1
+        definition2
+
+This will place `definition1` and `definition2` in the namespace `MyDefinitions`. Finally, the namespace's name must start
+with a capital letter.
+
+Even after doing all this you will encounter another error: impossible to use the constructors for list. That is because
+using namespaces encapsulates the definitions within it, to make them usable from outside the namespace we need to _export_
+them. Idris has 2 export mechanisms: `export` and `public export`. The first one exports the definition name and its type, the second
+one exports the definition name, it's type, and its implementation, this is important for proofs. If the definition you are
+exporting is a data structure, `export` will provide the type and `public export` will provide the type _and the constructors_
+which are necessary in order to create values and perform pattern matching. Since we want to use our list from outside the module
+and we want to use its constructors, we need to use `public export`. Here is the same example as before, but with export directives:
+
+    namespace MyDefinitions
+        public
+        definition1
+
+        public export
+        definition2
+
+You are now ready to finish this assignment, what you have left to do is convert the existing definitions that used `Empty` and `Node`
+to `Nil` and `(::)`, you can also use bracket `[…]` notation.
+
+
 ### List concatenation
 
 Implement the following function:
 
-	concat : List a -> List a -> List a
+```idris
+concat : List a -> List a -> List a
+```
+
+The following tests should pass:
+
+```idris
+-- catEmpty : File0.concat [1,2,3] [] === [1,2,3]
+-- catEmpty = Refl
+
+-- emptyCat : File0.concat [] [3,4,5] === [3,4,5]
+-- emptyCat = Refl
+
+-- normalCat : File0.concat [1,2,3][4,5,6] === [1,2,3,4,5,6]
+-- normalCat = Refl
+
+```idris
 
 ### List access
 
@@ -200,3 +268,9 @@ and is there a way to fix it?
 	transpose : Matrix m n a -> Matrix n m a
 
 
+-- notes for next time:
+-- Exercises too easy?
+-- what to do with the correction?
+-- Maybe more theory?
+-- How to steer toward a solution that makes use of the previous definitions?
+--
