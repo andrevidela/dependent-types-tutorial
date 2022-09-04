@@ -267,9 +267,25 @@ and is there a way to fix it?
 	transpose : Matrix m n a -> Matrix n m a
 
 
--- notes for next time:
--- Exercises too easy?
--- what to do with the correction?
--- Maybe more theory?
--- How to steer toward a solution that makes use of the previous definitions?
---
+notes for next time:
+- Exercises too easy?
+- What to do with the correction?
+    - Give explanation with corrections
+    - Diff
+- Maybe more theory?
+    - exercises
+- How to steer toward a solution that makes use of the previous definitions?
+    - Present this as a challenge (try to do this only using 3 functions)
+    - speed golf? space golf?
+- editor/interactive features?
+    - vscode
+    - idris-lsp
+      - :t id
+      - holes
+      - :doc
+      - :browse
+- programming games
+    - Shenzhen IO
+    - Factorio
+    - Minecraft redstone
+    - Human resource machine
