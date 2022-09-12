@@ -1,26 +1,25 @@
 module Exercises.File2
 
 
-data Sum : (0 _ : Type) -> (0 _ : Type) -> Type where
+data Sum : (0 _ : Lazy Type) -> (0 _ : Lazy Type) -> Type where
   L : a -> Sum a b
   R : b -> Sum a b
 
-
-0 TNat : Type
+TNat : Type
 TNat = Sum () TNat
 
 add : TNat -> TNat -> TNat
 add (L ()) r = r
-add (R n) r = Right (add n r)
+add (R n) r = R (add n r)
 
 mult : TNat -> TNat -> TNat
-mult (L ()) n = Left ()
+mult (L ()) n = L ()
 mult (R m) n = n `add` mult m n
 
-addTest : File2.add (Right (Right (Right (Left ())))) (Right (Left ())) = Right (Right (Right (Right (Left ()))))
+addTest : File2.add (R (R (R (L ())))) (R (L ())) = R (R (R (R (L ()))))
 addTest = Refl
 
-multTest : File2.mult (Right (Right (Right (Left ())))) (Right (Left ())) = Right (Right (Right (Right (Right (Left ())))))
+multTest : File2.mult (R (R (R (L ())))) (R (R (L ()))) = R (R (R (R (R (R (L ()))))))
 multTest = Refl
 
 -- concat (Left ()) ys = ys
@@ -61,28 +60,27 @@ reverse ty (x :: xs) = reverse ty xs ++ [x]
 --
 --    ```idris
 
-Vect : Nat -> Type -> Type
-Vect Z ty = Unit
-Vect (S n) ty = Pair ty (Vect n ty)
+Vect : TNat -> Type -> Type
+Vect (L ()) ty = Unit
+Vect (R n) ty = Pair ty (Vect n ty)
 
 zip : {a : Type} -> {b : Type} -> {c : Type} ->
-      (n : Nat) -> (a -> b -> c) -> Vect n a -> Vect n b -> Vect n c
-zip Z f xs ys = ()
-zip (S n) f (x, xs) (y, ys) = (f x y, zip n f xs ys)
+      (n : TNat) -> (a -> b -> c) -> Vect n a -> Vect n b -> Vect n c
+zip (L ()) f xs ys = ()
+zip (R n) f (x, xs) (y, ys) = (f x y, zip n f xs ys)
 
-vect1 : Vect 3 String
+vect1 : Vect (R (R (R (L ())))) String
 vect1 = ("hello", "world", "!", ())
 
-zipTest : File2.zip 3 (++) File2.vect1 File2.vect1
+zipTest : File2.zip (R (R (R (L ())))) (++) File2.vect1 File2.vect1
         = ("hellohello", "worldworld", "!!", ())
 zipTest = Refl
 
-map : {a : Type} -> {b : Type} -> (n : Nat) -> (a -> b) -> Vect n a -> Vect n b
-map Z f () = ()
-map (S n) f (x, xs) = (f x, map n f xs)
+map : {a : Type} -> {b : Type} -> (n : TNat) -> (a -> b) -> Vect n a -> Vect n b
+map (L ()) f () = ()
+map (R n) f (x, xs) = (f x, map n f xs)
 
-
-mapTest : map 3 String.length File2.vect1 = (5, 5, 1, ())
+mapTest : map (R (R (R (L ())))) String.length File2.vect1 = (5, 5, 1, ())
 mapTest = Refl
 
 --    ```
@@ -93,19 +91,19 @@ mapTest = Refl
 --    to declare `Fin`.
 --
 --    ```idris
-Fin : Nat -> Type
-Fin Z = Void
-Fin (S n) = Either Unit (Fin n)
+Fin : TNat -> Type
+Fin (L ()) = Void
+Fin (R n) = Either Unit (Fin n)
 --    ```
 --
 --    If we have `Fin` and we have `Vect` we should be able to recover our `index` function from before.
 --
 --    ```idris
-index : {a : Type} -> (n : Nat) -> Fin n -> Vect n a -> a
-index Z _ _ impossible
-index (S n) (Left ()) (x, xs) = x
-index (S n) (Right ns) (x, xs) = index n ns xs
+index : {a : Type} -> (n : TNat) -> Fin n -> Vect n a -> a
+index (L ()) _ _ impossible
+index (R n) (Left ()) (x, xs) = x
+index (R n) (Right ns) (x, xs) = index n ns xs
 --    ```
 
-indexTest : index 3 (Right (Left ())) File2.vect1 = "world"
+indexTest : index (R (R (R (L ())))) (Right (Left ())) File2.vect1 = "world"
 indexTest = Refl
