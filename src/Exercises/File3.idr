@@ -152,7 +152,7 @@ namespace Scoped
   ToType One xs = Unit
   ToType (Plus x y) xs = Either (ToType x xs) (ToType y xs)
   ToType (Times x y) xs = Pair (ToType x xs) (ToType y xs)
-  ToType (Apply x y) xs = assert_total $ ToType x (ToType y xs :: xs)
+  ToType (Apply x y) xs = assert_total $ ToType (substitute x y) xs
   ToType (Mu x) xs = Fix (ToType x . (:: xs))
 
   EitherDesc : CFT 2
@@ -174,7 +174,7 @@ namespace Scoped
   DList ty = ToType ListDesc [ty]
 
   DNil : DList a
-  DNil = Rec (Left ()) --Rec (Left ())
+  DNil = Rec (Left ())
 
   DCons : a -> DList a -> DList a
   DCons x y = Rec (Right (x, y))
@@ -198,7 +198,7 @@ namespace Scoped
   DZero = Rec (Left ())
 
   DSucc : DNat -> DNat
-  DSucc n = Rec (Right ((), n))
+  DSucc n = Rec (Right (n, ()))
 
   BoolDesc : CFT n
   BoolDesc = One `Plus` One
@@ -223,17 +223,49 @@ namespace Scoped
   index FZ (x :: y) = x
   index (FS y) (x :: z) = index y z
 
-  toJSON : (t : CFT n) -> {xs : Vect n Type} -> {ser : All (\x => x -> JSON) xs} -> ToType t xs -> JSON
-  -- toJSON (Var n) val = let serialiser = index n ser in serialiser val
-  -- toJSON Zero _ impossible
-  -- toJSON One _ = JObject []
-  -- toJSON (Plus y z) (Left x) = JObject [("left", toJSON y x {xs} {ser} )]
-  -- toJSON (Plus y z) (Right x) = JObject [("right", toJSON z x {xs} {ser} )]
-  -- toJSON (Times y z) (x, w) = JObject [("_1", toJSON y x {xs} {ser}), ("_2", toJSON z w {xs} {ser})]
-  -- toJSON (Mu y) (Rec unFix) = toJSON y
-  --     {xs = (Fix (\ty => ToType y (ty :: xs)) :: xs)}
-  --     {ser = ((\(Rec r) => assert_total $ toJSON y r {xs} {ser} ) :: ser)} unFix
-  -- toJSON (Apply y z) x = ?anniii
+  toJSON : (t : CFT n) -> {xs : Vect n Type} -> {auto ser : All (\x => x -> JSON) xs} -> ToType t xs -> JSON
+  toJSON (Var n) val = let serialiser = index n ser in serialiser val
+  toJSON Zero _ impossible
+  toJSON One _ = JObject []
+  toJSON (Plus y z) (Left x) = JObject [("left", toJSON y x {xs} {ser} )]
+  toJSON (Plus y z) (Right x) = JObject [("right", toJSON z x {xs} {ser} )]
+  toJSON (Times y z) (x, w) = JObject [("_1", toJSON y x {xs} {ser}), ("_2", toJSON z w {xs} {ser})]
+  toJSON (Mu y) (Rec rec) =
+    assert_total $ toJSON {xs = _ :: xs} {ser = (\z => toJSON {ser} (Mu y) z) :: ser} y rec
+  toJSON (Apply y z) x = toJSON {ser} (substitute y z) x
 
+  natToJSON : Nat -> JSON
+  natToJSON = cast {from = Double} . cast
+
+  jsonToNat : JSON -> Maybe Nat
+  jsonToNat json = ?www
+
+  testList : DList Nat
+  testList = DCons 3 (DCons 2 DNil)
+
+  listToJSON : JSON
+  listToJSON = toJSON ListDesc testList {xs = [Nat]} {ser = [natToJSON]}
+
+  twoToJSON : JSON
+  twoToJSON = toJSON NatFromList {xs = []} (DSucc (DSucc DZero))
+
+  fromJSON : (t : CFT n) -> {xs : Vect n Type} -> {auto deSer : All (\x => JSON -> Maybe x) xs} -> JSON -> Maybe (ToType t xs)
+  fromJSON (Var x) json = let deserialiser = index x deSer in deserialiser json
+  fromJSON Zero json = Nothing
+  fromJSON One (JObject []) = Just ()
+  fromJSON One _ = Nothing
+  fromJSON (Plus x y) (JObject [("left", z)]) = Left <$> fromJSON {deSer} x z
+  fromJSON (Plus x y) (JObject [("right", z)]) = Right <$> fromJSON {deSer} y z
+  fromJSON (Plus x y) _ = Nothing
+  fromJSON (Times x y) (JObject [("_1", l), ("_2", r)]) = MkPair <$> fromJSON {deSer} x l <*> fromJSON {deSer} y r
+  fromJSON (Times x y) _ = Nothing
+  fromJSON (Mu x) json =
+    case fromJSON {xs = _ :: xs} {deSer = fromJSON {deSer} (Mu x) :: deSer } x json of
+         Just w => Just $ Rec w
+         Nothing => Nothing
+  fromJSON (Apply x y) json = assert_total $ fromJSON {deSer} (substitute x y) json
+
+  deserialiseNat : Maybe DNat
+  deserialiseNat = fromJSON NatFromList {xs = []} twoToJSON
 
 
