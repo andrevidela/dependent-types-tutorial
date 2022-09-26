@@ -16,7 +16,7 @@ authors = "Andre Videla"
 depends = contrib
 
 -- modules to install
-modules = File0
+modules = File0, File4
 
 -- main file (i.e. file to load at REPL)
 -- main =
