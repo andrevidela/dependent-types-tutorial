@@ -1,5 +1,7 @@
 ```idris
 module File4
+
+import Data.Vect
 ```
 
 For this module we are going to keep doing what we were doing last time. We left off with the following challenge:
@@ -7,7 +9,7 @@ For this module we are going to keep doing what we were doing last time. We left
 > We can define types with any number of values but we cannot describe type _variables_.
 > We would like to describe types like `Either` and `Pair` with them.
 
-As a first attempt you mihgt be tempted by the following data structure:
+As a first attempt you might be tempted by the following data structure:
 
 ```
 data Desc' : Type where
@@ -17,6 +19,7 @@ data Desc' : Type where
   Plus  : Desc' -> Desc' -> Desc'
   Times : Desc' -> Desc' -> Desc'
 ```
+
 To implement our `ToType` function we now need to provide a list of names with an associated type so that we
 can extract the type for each varable.
 
@@ -24,12 +27,15 @@ But doing so will make it impossible to imlement our `ToType` function regardles
 
 ```
 ToType : List (String, Type) -> Desc' -> Type
-ToType (Var n) = ?what
+ToType ctx (Var n) = ?what
 ```
+
+Because we cannot ensure that the variable `n` can be found in the list `List (String, Type)`.
+We could do it by returning `Maybe Type` but in that case it would be very clumsy to use `ToType`.
 
 An easier solution is to limit the number of variables to 1:
 
-```
+```idris
 data DescVar : Type where
   Var   : DescVar
   Zero  : DescVar
@@ -40,10 +46,13 @@ data DescVar : Type where
 
 This way we can implement `ToType` with the following signature :
 
-```
+```idris
 ToType : DescVar -> Type -> Type
 ToType Var ty = ty
-... -- rest is the same
+ToType Zero ty = Void
+ToType One ty = Unit
+ToType (Plus x y) ty = Either (ToType x ty) (ToType y ty)
+ToType (Times x y) ty = Pair (ToType x ty) (ToType y ty)
 ```
 
 We now see that we can define data structures with one single variable in them. The other observation we make
@@ -61,6 +70,8 @@ MaybeDesc : DescVar
 MaybeDesc = Plus One Var
 ```
 
+In algebraic terms, our maybe type can be defined as `Maybe a = 1 + a`.
+
 ### Exercise
 
 Ensure that `ToType` defined as above is a functor.
@@ -76,6 +87,12 @@ Three : DescVar
 
 ThreeTy : Type -> Type
 ThreeTy = ToType Three
+
+MkThree : (a : Type) -> a -> a -> a -> ThreeTy a
+
+get1 : ThreeTy a -> a
+get2 : ThreeTy a -> a
+get3 : ThreeTy a -> a
 ```
 
 ## Multiple variables
@@ -86,32 +103,37 @@ To implement multiple variables, we are going to use two tricks:
 - Write variables as numbers
 - Use Vectors instead of Lists to track our context.
 
-This enables us to write `index n ctx` and always return a values from our context. This is what we've seen
-during the second set of exercises: safe indexing into a list.
+Using numbers will work the same way as using `String`, the difference is that the number now needs to point
+to a value in context. This way `Pair a b` will really be `Pair [a, b]` and `0` to refer to the first variable
+and `1` to refer to the second variable.
+
+Additionally, this enables us to write `index n ctx` and always return a values from our context. This is what
+we've seen during the second set of exercises: safe indexing into a list.
 Recalling those exercises, you will notice that the type of `index` is `Fin n -> Vect n a -> a`. This means
 that the size of the index must match the size of the vector. How do we achieve that?
 We need to _index_ our Descriptions with the number of variables it has so that we can match it with the size
 of the context:
 
 ```idris
-data Context : Nat -> Type where
-  Var   : Fin n -> Context n
-  Zero  : Context n
-  One   : Context n
-  Plus  : Context n -> Context n -> Context n
-  Times : Context n -> Context n -> Context n
+namespace Variables
+  data Context : Nat -> Type where
+    Var   : Fin n -> Context n
+    Zero  : Context n
+    One   : Context n
+    Plus  : Context n -> Context n -> Context n
+    Times : Context n -> Context n -> Context n
 ```
 
 From this we can write the function `ToType` given a vector of `n` Types if the description
 contains `n` variables.
 
 ```idris
-ToType : Context n -> Vect n Type  -> Type
-ToType (Var x) xs = index x xs
-ToType Zero xs = Void
-ToType One xs = Unit
-ToType (Plus x y) xs = Either (ToType x xs) (ToType y xs)
-ToType (Times x y) xs = Pair (ToType x xs) (ToType y xs)
+  ToType : Context n -> Vect n Type  -> Type
+  ToType (Var x) xs = index x xs
+  ToType Zero xs = Void
+  ToType One xs = Unit
+  ToType (Plus x y) xs = Either (ToType x xs) (ToType y xs)
+  ToType (Times x y) xs = Pair (ToType x xs) (ToType y xs)
 ```
 
 With this we can now write the description for the types `Either`, `Pair` and more.
@@ -138,15 +160,17 @@ For this we are going to use the convention that any expression under that const
 first variable, variable 0, to be a reference to itself.
 
 ```idris
-data CFT : Nat -> Type where
-  Var   : Fin n -> CFT n
-  Zero  : CFT n
-  One   : CFT n
-  Plus  : CFT n -> CFT n -> CFT n
-  Times : CFT n -> CFT n -> CFT n
-  Mu    : CFT (S n) -> CFT n
-      --   ▲
-      --   └ When under `Mu` the 0 variable refers to itself
+namespace Recursive
+  public export
+  data CFT : Nat -> Type where
+    Var   : Fin n -> CFT n
+    Zero  : CFT n
+    One   : CFT n
+    Plus  : CFT n -> CFT n -> CFT n
+    Times : CFT n -> CFT n -> CFT n
+    Mu    : CFT (S n) -> CFT n
+        --   ▲
+        --   └ When under `Mu` the 0 variable refers to itself
 ```
 
 We renamed our description of types 'CFT' for _Context Free Types_ which is the name given to them
@@ -157,13 +181,13 @@ of `Mu`.
 
 
 ```idris
-ToType : Context n -> Vect n Type  -> Type
-ToType (Var x) xs = index x xs
-ToType Zero xs = Void
-ToType One xs = Unit
-ToType (Plus x y) xs = Either (ToType x xs) (ToType y xs)
-ToType (Times x y) xs = Pair (ToType x xs) (ToType y xs)
-ToType (Mu x) = ?what
+  ToTypeFail : CFT n -> Vect n Type  -> Type
+  ToTypeFail (Var x) xs = index x xs
+  ToTypeFail Zero xs = Void
+  ToTypeFail One xs = Unit
+  ToTypeFail (Plus x y) xs = Either (ToTypeFail x xs) (ToTypeFail y xs)
+  ToTypeFail (Times x y) xs = Pair (ToTypeFail x xs) (ToTypeFail y xs)
+  ToTypeFail (Mu x) xs = ?what
 ```
 
 
@@ -173,7 +197,7 @@ sense since we said that whenever we find ourself under a `Mu` we create a new v
 
 
 ```
-ToType (Mu x) = ToType x (ToType (Mu x) xs :: xs)
+  ToTypeFail (Mu x) = ToType x (ToType (Mu x) xs :: xs)
 ```
 
 For this to work we are going to need a new trick: fixpoints
@@ -186,9 +210,9 @@ of the function changes nothing: `x = f(x)`
 To fix our `Mu` problem, we are going to use the equivalent structure but for types:
 
 ```idris
-record Fix (f : Type -> Type) where
-  constructor In
-  unFix : Inf (f (Fix f))
+  record Fix (f : Type -> Type) where
+    constructor In
+    unFix : Inf (f (Fix f))
 ```
 
 The `Fix` type takes a Functor `f : Type -> Type` and carries a value of type `f (Fix f)`.
@@ -213,25 +237,60 @@ process going we can generate any natural number.
 Using our fixpoint type we can implement the type of `Mu` to be
 
 ```
-ToType (Mu x) xs = Fix (\self => ToType x (self :: xs))
+  ToType (Mu x) xs = Fix (\self => ToType x (self :: xs))
 ```
 
+Our final version looks like this:
+
+```idris
+  export
+  ToType : CFT n -> Vect n Type  -> Type
+  ToType (Var x) xs = index x xs
+  ToType Zero xs = Void
+  ToType One xs = Unit
+  ToType (Plus x y) xs = Either (ToType x xs) (ToType y xs)
+  ToType (Times x y) xs = Pair (ToType x xs) (ToType y xs)
+  ToType (Mu x) xs = Fix (\self => ToType x (self :: xs))
+```
 ## Exercises
 
 Define `Nat`, `List` and `Tree`.
 
+```idris
+NatDesc : CFT Z
+
+NatTy : Type
+NatTy = ToType NatDesc []
+
+ListDesc : CFT (S n)
+
+ListTy : Type -> Type
+ListTy ty = ToType ListDesc [ty]
+
+TreeDesc : CFT (S n)
+TreeTy : Type -> Type
+```
+
 Define the constructors :
 
-```
-Zero : NatTy
-Succ : NatTy -> NatTy
+```idris
+Z : NatTy
 
-Empty : (a : Type) -> List a
-Cons : (a : Type) -> a -> List a -> List a
+S : NatTy -> NatTy
 
-Leaf : (a : Type) -> Tree a
-Branch : (a : Type) -> a -> Tree a -> Tree a -> Tree a
+Empty : (a : Type) -> ListTy a
+Cons : (a : Type) -> a -> ListTy a -> ListTy a
+
+Leaf : (a : Type) -> TreeTy a
+Branch : (a : Type) -> a -> TreeTy a -> TreeTy a -> TreeTy a
 ```
 
 Then write addition for our custom `Nat`, length for `List` and `inorder : Tree a -> List a`.
 
+```idris
+add : NatTy -> NatTy -> NatTy
+
+length : ListTy a -> NatTy
+
+inorder : TreeTy a -> ListTy a
+```

@@ -97,6 +97,27 @@ namespace Variables
   failing
     Bool : Type
     Bool = ToType [] BoolDesc
+namespace Context
+  data Func : Type where
+    Var   : Func
+    Zero  : Func
+    One   : Func
+    Plus  : Func -> Func -> Func
+    Times : Func -> Func -> Func
+
+  ToType : Func -> Type -> Type
+  ToType Var ty = ty
+  ToType Zero ty = Void
+  ToType One ty = Unit
+  ToType (Plus x y) ty = Either (ToType x ty) (ToType y ty)
+  ToType (Times x y) ty = Pair (ToType x ty) (ToType y ty)
+
+  IsFunctor : (a -> b) -> (ctx : Func) -> ToType ctx a -> ToType ctx b
+  IsFunctor f Var x = f x
+  IsFunctor f Zero x = void x
+  IsFunctor f One x = x
+  IsFunctor f (Plus y z) x = bimap (IsFunctor f y) (IsFunctor f z) x
+  IsFunctor f (Times y z) x = bimap (IsFunctor f y) (IsFunctor f z) x
 
 namespace Scoped
   data CFT : Nat -> Type where
@@ -144,7 +165,7 @@ namespace Scoped
 
   record Fix (f : Type -> Type)  where
     constructor Rec
-    unFix : Inf (f (Fix f))
+    unFix : Lazy (f (Fix f))
 
   ToType : CFT n -> Vect n Type  -> Type
   ToType (Var x) xs = index x xs
