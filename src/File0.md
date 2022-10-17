@@ -1,4 +1,4 @@
-# File 0, lists and vectors
+# File 0
 
 Content:
 
@@ -22,8 +22,9 @@ module File0
 Here is how to define new data structures:
 
 ```idris
-data Nat = Z -- Z for Zero
-         | S Nat -- S for Successor
+data Nat : Type where
+  Z : Nat        -- Z for Zero
+  S : Nat -> Nat -- S for Successor
 ```
 
 This represents "natural numbers", the set of whole numbers starting from 0 and increasing from there.
@@ -34,8 +35,9 @@ Here is a definition of lists:
 ```idris
 namespace List
   public export
-  data List a = Nil
-              | (::) a (List a)
+  data List : Type -> Type where
+    Nil : List a
+    (::) : a -> List a -> List a
 ```
 
 This defines a list with two constructors, either the list is empty (`Nil`) or the list is

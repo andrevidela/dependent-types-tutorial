@@ -341,7 +341,7 @@ Identity : TyC [n] n
 Identity = Var Here
 ```
 
-Apply `MaybeDesc` to `Identity` to achieve what was not possible with `CFT`
+- Apply `MaybeDesc` to `Identity` to achieve what was not possible with `CFT`
 
 - Apply `EitherDesc` to `ListDesc` to obtain this signature:
 
