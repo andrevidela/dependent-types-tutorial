@@ -53,12 +53,13 @@ ToType One xs = Unit
 ToType (Plus x y) xs = Either (ToType x xs) (ToType y xs)
 ToType (Times x y) xs = Pair (ToType x xs) (ToType y xs)
 ToType (Mu x) xs = Fix (ToType x . (:: xs))
-ToType (Apply x y) xs = ?apply_type
+-- ToType (Apply x y) xs = ?apply_type
 ```
 
-I have left the implementation of `Apply` as a hole because it is not easy to come up with.
-As a first attempt looking at the type of `apply_type` we see
-
+if we look into the type of the hole `apply_type` we see that we are asked to return a
+`Type` and are given both `CFT n` and `CFT (S n)`. We could just return `ToType y xs` because
+the size of the context `xs` matches `y`, but that would be wrong because this would just
+return the type of the _argument_ of the application.
 
 ```
  0 n : Nat
@@ -79,248 +80,248 @@ ToType (Apply x y) xs =
   in ToType x (arg :: xs) -- then we extend the context and compute x
 ```
 
-However this does not work, try the following test:
-
-That is because whenever we apply a type to a `Mu` we need to place the provided type in _second_
-position in the context, rather than in first. Remember that the first position is reserved for the
-recursive definition.
-
-
-assume we want to write the following type :
-
-```
-ListOfList : Type -> Type
-ListOfList a = List (List a)
-```
-
-and we want to instanciate it with the type `Nat`
-
-```
-ListOfListNat : Type
-ListOfListNat = ListOfList Nat`
-```
-
-We would write this in our language as:
-
-```
-ListOfListDesc : CFT 1
-ListOfListDesc = App ListDesc ListDesc
-
-```
-ListAppOne : CFT 0
-ListAppone = (Mu (Plus One (Times (Mu (Plus One (Times (Var 2) (Var 0)))) (Var 0)))) `
-
-ToType ListAppOne [Unit]
-```
-
-
-
-# Lambda Calculus
-
-The lambda calculus is a foundational calculus that captures the essence of _computation_. Any
-problem that can be written as a term in the lambda calculus can be "computed", in practice,
-it means that we can make a computer perform the work described by our lambda term. The lambda
-calculus is a great tool for learning about programming languages and type theory because it is
-quite small, and can be extended in order to obtain more sophisticated languages.
-
-At its core, the lambda calculus only has three constructs: Variables, Application, and Lambda
-abstraction. So we can either refer to a variable from an argument we have, apply a function
-to some value and create a function. The code will look fairly similar to what we have seen
-with `CFT`:
+We can now write application of types with descriptions we've already seen. Here is the definition
+of `Nat` as the application of `List` on `One`
 
 ```idris
-namespace Lambda
-  public export
-  data LC : Nat -> Type where
-    Var : Fin n -> LC n
-    Lam : LC (S n) -> LC n
-    App : LC n -> LC n -> LC n
+ListDesc : CFT 1
+ListDesc = Mu (Plus One (Times (Var 1) (Var 0)))
+
+ListType : Type -> Type
+ListType x = ToType ListDesc [x]
+
+NatDesc : CFT 0
+NatDesc = Apply ListDesc One
 ```
 
-Just like before we are going to keep track of how many variables are in scope using a `Nat`
-index. Variables come from uses of `Lam` which stands for _lambda_. The name comes from the
-greek letter lambda, written λ, and was first used in the first definitions of the lambda
-calculus. An identity function in the lambda calculus is written as `λx. x` where `λ` denotes
-the beginig of a lambda declaration, the dot `.` separates the argument of the function with
-its body and on the right side of the dot is the function body. The syntax can be summarised
-as `λ *argument* . *body*`. Because we are going to use numbers instead of variables we are
-going to write `λ 0` instead of `λx. x` to indicate that the variable is immediately used.
+## Exercises
 
-The translatio can be achieved by enumerating successive layers of λ and replacing the variable
-names with their number. here is another example with the function `const` which ignores its
-second argument:
+Implement booleans as the application of `Maybe` with `One`
 
-```
-const = λx. λy. x
- = λ1. λ0. 1
- = λ λ 1
-```
+Implement `Maybe` as the application of `Either` with `Zero`
 
-`App` is just function application so if we want to apply a function to another we have
-to give the function as a first argument to `App` and the argument as the second argument.
+Implement `Unit` as the application of `List` with `Zero`
 
-Let's say we have the functions `id = λx. x = λ0` and `const = λx. λy. x = λ λ 1` if we apply `const`
-to `id` we write
+# Addressing limitation
 
-```
-App id const
-```
+One thing we cannot do that should work is that we cannot replace a variable by a term that has itself
+variables.
 
-In the lambda calculus we usuall write application using whitespace between identiers, just
-like in Idris `f x y = (f x) y = App (App f x) y`.
-
-Idris allows us to define custom operators that will make writing lambda calculus programs a
-lot closer to what it is like to write informally. First we define `$$` as an infix operator
-for `App`. Then we define `\\` as a prefix operator to replace `λ`
+For example the following will fail:
 
 ```idris
-infixl 1 $$
+Identity : CFT 1
+Identity = Var 0
 
-($$) : LC n -> LC n -> LC n
-($$) = App
-
-prefix 2 \\
-
-(\\) : LC (S n) -> LC n
-(\\) = Lam
+failing
+  AppId : CFT 1
+  AppId = Apply Identity MaybeDesc
 ```
 
-Finally we do not have to write `Var` every time we want to use a variable if we provide a
-function `fromInteger` that returns a lambda calculus term of the correct variable:
+This is because we required each application to be with a term that has strictly less variables. We
+can cheat by allowing the context to be flexible and adding dummy variables:
 
 ```idris
-fromInteger : (i : Integer) -> {n : Nat} -> {auto 0 check : So (integerLessThanNat i n)} -> LC n
-fromInteger i = Var (fromInteger i)
+IdentityN : CFT (1 + n)
+IdentityN = Var 0
+
+AppId : CFT 1
+AppId = Apply IdentityN MaybeDesc
 ```
 
-We can check this works by writing the programs `const` and `id`:
+Here is another example that ought to work
 
 ```idris
--- λx. λy. x
-const : LC 0
-const = \\ \\ 1
+EitherDesc : CFT 2
+EitherDesc = Plus (Var 0) (Var 1)
 
--- λx. x
-id : LC 0
-id = \\ 0
-
-constId : LC 0
-constId = const $$ id $$ id
+ListEitherDesc : CFT 2
+ListEitherDesc = Apply ListDesc EitherDesc
 ```
 
-## Writing programs
-
-The lambda calculus is very powerful but a little bit hard to decypher. For example, we can
-implement conditionals witht the following encoding:
-
-```
--- λx. λy. x
--- always use the first argument
-true : LC 0
-true = \\ \\ 1
-
--- λx. λy. y
--- always use the second argument
-false : LC 0
-false = \\ \\ 0
-```
-
-if we want to write the program that returns either `const` or `id` depending on a variable `b`
-we can write `λb. b const id` or in our program
+This was a little bit optimistic since even Idris does not allow us to write:
 
 ```idris
-constOrId : LC 0
-constOrId = \\ 0 $$ const $$ id
+failing
+  EitherList : Type -> Type -> Type
+  EitherList = List Either
 ```
 
-Numbers can also be represented in the lambda calculus, the encoding is as follows:
-
-```
--- λx. λy. x
--- like const
-zero : LC 0
-zero = \\ \\ 1
-
--- λx. λy. λz. z (x y z)
--- λ2. λ1. λ0. 0 (2 1 0)
--- λλλ 0 (2 1 0)
---
-succ : LC 0
-succ = \\ \\ \\ 0 $$ (2 $$ 1 $$ 0)
-```
-
-Unfortunately that can be a little bit hard to read. To fix this we are going to build-in numbers
-directly by providing two constructors `Zero` and `Succ` in the lambda calculus:
-
-
-```
-namespace LambdaNat
-  public export
-  data LCNat : Nat -> Type where
-    Var : Fin n -> LCNat n
-    Lam : LCNat (S n) -> LCNat n
-    App : LCNat n -> LCNat n -> LCNat n
-    Zero : LCNat n
-    Succ : LCNat n -> LCNat n
-```
-
-We're missing one thing however and that's an induction principle in order to iterate over
-natural numbers. in the church encoding of numbers this is taken care of by the numbers themselves
-the numbers and their induction structure are one and the same. But here we need to teach our
-language to deal with them. Induction on nat makes the rules under which recursion is ok explicit:
-Either we are in the base-case because we've hit `Zero` or we are in an inductive case with `Succ n`.
+But we can write
 
 ```idris
-namespace LambdaNat
-  public export
-  data LCNat : Nat -> Type where
-    Var : Fin n -> LCNat n
-    Lam : LCNat (S n) -> LCNat n
-    App : LCNat n -> LCNat n -> LCNat n
-    Zero : LCNat n
-    Succ : LCNat n -> LCNat n
-    Case : (scrutinee : LCNat n)
-        -> (zero : LCNat n)
-        -> (succ : LCNat (S n))
-        -> LCNat n
+EitherList : Type -> Type -> Type
+EitherList a b = List (Either a b)
 ```
 
-I've given names to the different arguments of the `Case` constructor. The first argument is the number
-we want to analyse, the second argument is what to do in case the number is `0`, the third one is
-the program we run in the `Succ n` case. We see that the context is extended by one since the number
-`n` is now in scope.
+Wouldn't it be nice if we could write those program in our type language?
 
-We can now print lambda terms and numbers so that we can see better what's going on:
+Finally one important thing to mention is that we allow non-sensical type applications:
 
 ```idris
-  export
-  print : LCNat n -> String
-  print (Var n) = show n
-  print (Lam body) = "λ \{print body}"
-  print (App fn arg) = "\{print fn} \{print arg}"
-  print (Case v z s) = """
-    case \{print v} of
-        Zero => \{print z}
-        Succ 0 => \{print s}
-    """
-  print n = either id show (fromNat n)
-    where
-      fromNat : LCNat _ -> Either String Nat
-      fromNat Zero = Right Z
-      fromNat (Succ n) = bimap ("S " ++) S (fromNat n)
-      fromNat x = Left (print x)
+Weird : CFT 0
+Weird = Apply One One
 ```
 
-With this we can write natural numbers much more easily:
+Clearly the type `One` has no variables in it so there is no sense in applying an argument
+to it, and yet it works. This is becasue  we do not check that applications are done with
+something that expects an _argument_ as input.
+
+To fix all those issues we are going to update our language with a _typing context_. That is,
+in addition to keeping track of how many variables we need, we are also going to track what kind
+of variables we are dealing with. In order to avoid any confusion between idris _types_ and the
+types inside our language, we are going to call the later "kinds". This is also to remain consistent
+with existing literature about haskell where the "type of types" is called a _kind_.
+
+Our language, therefore, has two _kinds_: Either we are a plain kind, or we are a function kind.
+Function kinds can be applied but plain kinds cannot.
 
 ```idris
-one : LCNat n
-one = Succ Zero
+infixr 1 =>>
+
+data Kind : Type where
+  Plain : Kind
+  (=>>) : Kind -> Kind -> Kind
 ```
 
+we use a custom operator to ease the lecture of those kinds, I read the operator as the "fat arrow"
+which is mean to be the idris analogous of `->`.
+
+Our typing context (or kinding context?) is now a list of kinds, rather than a natural number, here
+is a helpful alias:
+
+```idris
+Context : Type
+Context = List Kind
+```
+
+We need to keep track of an additional parameter and that is the kind of the term we are building.
+Without it, we cannot ensure that we apply the correct values together. With context and kind
+taken into account, our type declaration looks like this:
+
+```idris
+data TyC : (0 _ : Context) -> (0 _ : Kind) -> Type where
+```
+
+We rewrite our usual definitions as before but we adapt our types to match our new `Context` rather
+than `Nat`.
+Previously we used `Fin n` to ensure that our variables were within the range `n` of variables. Now,
+we use the type `Elem` from `Data.List.Elem` which ensure we only refer to elements that
+are present in the list. Here is what the documentation says about it:
+
+```
+Main> :doc Elem
+data Data.List.Elem.Elem : a -> List a -> Type
+  A proof that some element is found in a list.
+  Totality: total
+  Visibility: public export
+  Constructors:
+    Here : Elem x (x :: xs)
+      A proof that the element is at the head of the list
+    There : Elem x xs -> Elem x (y :: xs)
+      A proof that the element is in the tail of the list
+```
+
+`Here` replaces our `FZ` and `There` replaces `FS`.
+
+```idris
+  -- a type variable, it has kind `e`
+  Var : e `Elem` ctx -> TyC ctx e
+```
+
+The other definitions follow from what we've written for our previous implementation,
+we just replace our variable counter `n` by a context variable `ctx`:
+
+```idris
+
+  -- Zero and One are plain types
+  Zero : TyC ctx Plain
+  One  : TyC ctx Plain
+
+  -- Times only works on plain types
+  Times : TyC ctx Plain
+       -> TyC ctx Plain
+       -> TyC ctx Plain
+
+  -- Plus only works on plain types
+  Plus : TyC ctx Plain
+      -> TyC ctx Plain
+      -> TyC ctx Plain
+
+  -- Mu has kind `a`
+  Mu : TyC (a :: ctx) a
+    -> TyC       ctx a
+```
+
+We haven't implemented our application constructor and that's because we will actually need two
+things for this to work.
+
+Application can only work on a term of kind `a =>> b` and would only work if we provide if a term
+of kind `a`, it would return a term of kind `b`. This is pretty much exactly function application
+that you know from languages such as Idris:
 
 
+```idris
+  -- Type application
+  App : {a : _}
+     -> TyC ctx (a =>> b)
+     -> TyC ctx a
+     -> TyC ctx b
+```
 
-# Exercises
+Now if we leave it at that we notice a problem. There is actually no way to create a value of kind
+`a =>> b` which means we can never use the constructor. We therefore need to find a way to construct
+values of `a =>> b`. To make up for this we introduce the constructor `Lam` which stands for "lambda"
+or "lambda abstraction". It allows to change a term with a value `a` in context to a term without
+the value in context but with a kind `a =>> b`.
 
+```idris
+  -- lambda abstraction
+  Lam : TyC (a :: ctx) b
+      ------------------
+     -> TyC ctx (a =>> b)
+```
+
+Effectively it's the inverse operation of `App`. `App` removes instances of `a =>> b` and `Lam` creates
+them.
+
+The names don't lie, we ended up implementing the simply typed lambda calulus in our description languages.
+While we do not have an interpreter or semantics for this language, we can build terms for them and they
+will allways be correctly typed. Typically we cannot apply `One` to `One` anymore:
+
+```idris
+failing
+  failApply : TyC [] Plain
+  failApply = App One One
+```
+
+Here is how to implement `Either`:
+
+```idris
+EitherDesc : TyC (Plain :: Plain :: ctx) Plain
+EitherDesc = Plus (Var Here) (Var (There Here))
+```
+
+## Exercises
+
+- Implement `EitherLam : TyC ctx (Plain =>> Plain =>> Plain)`
+
+- Implement `MaybeDesc` using `EitherLam` and `One`
+
+- Implement `ListDesc`, it should be very similar to the version without contexts.
+
+- Here is the same `Identity` as before but with typed contexts:
+
+```idris
+Identity : TyC [n] n
+Identity = Var Here
+```
+
+Apply `MaybeDesc` to `Identity` to achieve what was not possible with `CFT`
+
+- Apply `EitherDesc` to `ListDesc` to obtain this signature:
+
+```
+ListEitherDesc : TyC ctx (Plain =>> Plain =>> Plain)
+```
 

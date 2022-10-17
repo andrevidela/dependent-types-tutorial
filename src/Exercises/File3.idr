@@ -1,8 +1,10 @@
 module Exercises.File3
 
 import Data.List
+import Data.Nat
 import Data.Fin
 import Data.Vect
+import Data.Vect.Elem
 import Data.Vect.Quantifiers
 import Language.JSON
 import Iso
@@ -97,6 +99,7 @@ namespace Variables
   failing
     Bool : Type
     Bool = ToType [] BoolDesc
+
 namespace Context
   data Func : Type where
     Var   : Func
@@ -119,63 +122,153 @@ namespace Context
   IsFunctor f (Plus y z) x = bimap (IsFunctor f y) (IsFunctor f z) x
   IsFunctor f (Times y z) x = bimap (IsFunctor f y) (IsFunctor f z) x
 
+infix 2 =>>
+
+
+record Fix (f : Type -> Type)  where
+  constructor Rec
+  unFix : Lazy (f (Fix f))
+
+record Fix2 (f : Type -> Type -> Type) (a : Type) where
+  constructor Rec2
+  unFix : Lazy (f a (Fix2 f a))
+
 namespace Scoped
   data CFT : Nat -> Type where
     Var : Fin n -> CFT n
+    Mu : CFT (S n) -> CFT n
+    One : CFT n
     Zero : CFT n
-    One  : CFT n
     Plus : CFT n -> CFT n -> CFT n
     Times : CFT n -> CFT n -> CFT n
-    Mu : CFT (S n) -> CFT n
     Apply : CFT (S n) -> CFT n -> CFT n
-
-  pow : CFT n -> Nat -> CFT n
-  pow n Z = One
-  pow n (S Z) = n
-  pow n (S m) = n `Times` (n `pow` m)
-
-  Ren : Nat -> Nat -> Type
-  Ren n m = Fin n -> Fin m
-
-  ext : Ren n m -> Ren (S n) (S m)
-  ext s  FZ    = FZ
-  ext s (FS x) = FS (s x)
-
-  rename : Ren a b -> CFT a -> CFT b
-  rename f (Var v) = Var (f v)
-  rename f Zero = Zero
-  rename f One = One
-  rename f (Plus y z) = rename f y `Plus` rename f z
-  rename f (Times y z) = rename f y `Times` rename f z
-  rename f (Mu y) = Mu (rename (ext f) y)
-  rename f (Apply y z) = Apply (rename (ext f) y) (rename f z)
-
-  weaken : CFT a -> CFT (S a)
-  weaken = rename FS
-
-  substitute : CFT (S n) -> CFT n -> CFT n
-  substitute (Var FZ) y = y
-  substitute (Var (FS x)) y = Var x
-  substitute Zero y = Zero
-  substitute One y = One
-  substitute (Plus x z) y = Plus (substitute x y) (substitute z y)
-  substitute (Times x z) y = Times (substitute x y) (substitute z y)
-  substitute (Mu x) y = Mu (substitute x (weaken y))
-  substitute (Apply x z) y = Apply (substitute x (weaken y)) (substitute z y)
-
-  record Fix (f : Type -> Type)  where
-    constructor Rec
-    unFix : Lazy (f (Fix f))
 
   ToType : CFT n -> Vect n Type  -> Type
   ToType (Var x) xs = index x xs
-  ToType Zero xs = Void
   ToType One xs = Unit
+  ToType Zero xs = Void
+  ToType (Mu x) xs = Fix (ToType x . (:: xs))
   ToType (Plus x y) xs = Either (ToType x xs) (ToType y xs)
   ToType (Times x y) xs = Pair (ToType x xs) (ToType y xs)
-  ToType (Apply x y) xs = assert_total $ ToType (substitute x y) xs
-  ToType (Mu x) xs = Fix (ToType x . (:: xs))
+  ToType (Apply x y) xs =
+    let arg = ToType y xs -- first we compute the argument
+    in ToType x (arg :: xs) -- then we extend the context and compute x
 
+  MaybeDesc : CFT 1
+  MaybeDesc = Plus One (Var 0)
+
+  Identity : CFT 1
+  Identity = Var 0
+
+  failing
+    fail : CFT 1
+    fail = Apply Identity MaybeDesc
+
+  ListDesc : CFT 1
+  ListDesc = Mu (Plus One (Times (Var 1) (Var 0)))
+
+  ListEither : Type -> Type -> Type
+  ListEither a b = List (Either a b)
+
+  EitherDesc : CFT 2
+  EitherDesc = Plus (Var 0) (Var 1)
+
+  ListEitherDesc : CFT 2
+  -- ListEitherDesc = Apply ListDesc EitherDesc
+
+  Illegal : CFT 0
+  Illegal = Apply One Zero
+
+  IllegalType : Type
+  IllegalType = ToType Illegal []
+
+  IllegalValue : IllegalType
+  IllegalValue = ?aa
+
+  {-
+
+  ListType : Type -> Type
+  ListType x = ToType ListDesc [x]
+
+  ListNil : ListType a
+  ListNil = Rec (Left ())
+
+  ListCons : a -> ListType a -> ListType a
+  ListCons x xs = Rec (Right (MkPair x xs))
+
+  NatDesc : CFT 0
+  NatDesc = Apply ListDesc One
+
+  NatType : Type
+  NatType = ToType NatDesc []
+
+  NatZero : NatType
+  NatZero = ListNil
+
+  NatSucc : NatType -> NatType
+  NatSucc = ListCons ()
+
+  ListNatType : Type
+  ListNatType = ToType (Apply ListDesc NatDesc) []
+
+  ZeroOneTwo : ListNatType
+  ZeroOneTwo = ListCons NatZero
+             $ ListCons (NatSucc NatZero)
+             $ ListCons (NatSucc $ NatSucc NatZero)
+             $ ListNil
+
+  GenericRose : (Type -> Type) -> Type -> Type
+  GenericRose f = Fix2 (\a, b => f (a, b))
+
+  Rose : Type -> Type
+  Rose = GenericRose List
+
+  RoseNil : Rose a
+  RoseNil = Rec2 []
+
+  RoseNest : List (a, Rose a) -> Rose a
+  RoseNest x = Rec2 x
+
+  ListGen : Type -> Type
+  ListGen = GenericRose Maybe
+
+  GenNil : ListGen a
+  GenNil = Rec2 Nothing
+
+  GenCons : a -> ListGen a -> ListGen a
+  GenCons x y = Rec2 (Just (x, y))
+
+  NatGen : Type
+  NatGen = ListGen Unit
+
+  ZeroGen : NatGen
+  ZeroGen = GenNil
+
+  SuccGen : NatGen -> NatGen
+  SuccGen = GenCons ()
+
+
+{-
+  GenericRoseDesc : CFT 1
+  GenericRoseDesc = Mu $ Apply ListDesc (Apply (Var 0) (Var 1))
+
+  RoseType : Type -> Type
+  RoseType x = ToType RoseDesc [x]
+
+  RoseNil' : RoseType a
+  RoseNil' = Rec ListNil
+
+  Rose : Type -> Type
+  Rose = GenericRose List
+
+  RoseNil : Rose a
+  RoseNil = []
+
+  RoseNest : List (Rose a) -> Rose a
+  -- RoseNest xs = ?add
+
+
+{-
   EitherDesc : CFT 2
   EitherDesc = Var 0 `Plus` Var 1
 
@@ -219,7 +312,7 @@ namespace Scoped
   DZero = Rec (Left ())
 
   DSucc : DNat -> DNat
-  DSucc n = Rec (Right (n, ()))
+  DSucc n = ?notsure
 
   BoolDesc : CFT n
   BoolDesc = One `Plus` One
@@ -232,6 +325,18 @@ namespace Scoped
 
   IntDesc : CFT n
   IntDesc = BoolDesc `pow` 32
+
+  ListNat : CFT 0
+  ListNat = ListDesc `Apply` NatFromList
+
+  ListNatTy : Type
+  ListNatTy = ToType ListNat []
+
+  ZeroWrong : ListNatTy
+  ZeroWrong = Rec (Delay (Left ()))
+
+  SuccWrong : ListNatTy -> ListNatTy
+  SuccWrong n = Rec (Delay (Right (Rec (Delay (Left ())), n)))
 
   -- Left is true, Right is false
   DBool : Type
@@ -253,8 +358,9 @@ namespace Scoped
   toJSON (Times y z) (x, w) = JObject [("_1", toJSON y x {xs} {ser}), ("_2", toJSON z w {xs} {ser})]
   toJSON (Mu y) (Rec rec) =
     assert_total $ toJSON {xs = _ :: xs} {ser = (\z => toJSON {ser} (Mu y) z) :: ser} y rec
-  toJSON (Apply y z) x = toJSON {ser} (substitute y z) x
+  toJSON (Apply y z) x = toJSON {ser} ?ww (?wwaa x) --toJSON {ser} (substitute y z) x
 
+  {-
   natToJSON : Nat -> JSON
   natToJSON = cast {from = Double} . cast
 
@@ -288,5 +394,6 @@ namespace Scoped
 
   deserialiseNat : Maybe DNat
   deserialiseNat = fromJSON NatFromList {xs = []} twoToJSON
+
 
 
