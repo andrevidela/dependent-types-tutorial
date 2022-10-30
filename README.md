@@ -4,7 +4,7 @@ A tutorial on how to use dependent types.
 
 ## Content
 
-- [Chapter0][src/File0.md] Lists, Vectors, Matrices
+- [Chapter0](src/File0.md) Lists, Vectors, Matrices
 - (Heterogenous data, quantifiers.)
 - (Gamma matricies???)
 - ??? (implicits? records? interfaces? infix? quantities?)

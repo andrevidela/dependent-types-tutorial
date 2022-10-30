@@ -149,6 +149,11 @@ Here is another example that ought to work. We're applying `Either` to `List`
 in hopes of creating a type that will be a list of eithers. The resulting type
 should have two type variables, one for each side of the either.
 
+List : CFT 1
+Either : CFT 2
+
+List $ Either : CFT 2
+
 ```idris
   EitherDesc : CFT 2
   EitherDesc = Plus (Var 0) (Var 1)

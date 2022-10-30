@@ -142,6 +142,21 @@ ToType {kind = Star} {kinds} (Times x y) z = Pair (ToType x z) (ToType y z)
 ToType Zero _ = Void
 ToType One _ = Unit
 
+ChoiceVal : Bool -> Type -> Type -> Type
+ChoiceVal True a b = a
+ChoiceVal False a b = b
+
+record FunkyEither (a, b : Type) where
+  constructor MkFunkyEither
+  choice : Bool
+  value : ChoiceVal choice a b
+
+MkLeft : a -> FunkyEither a b
+MkLeft x = MkFunkyEither True x
+
+MkRight : b -> FunkyEither a b
+MkRight y = MkFunkyEither False y
+
 
 EitherDesc : Star ::  Star :: gamma |- Star
 EitherDesc = Plus (Val Here) (Val (There Here))
@@ -164,9 +179,11 @@ EitherOneTy = Left ()
 ListDesc : Star :: gamma |- Star
 ListDesc = Mu (Plus One (Times (Val (There Here)) (Val $ Here)))
 
+EitherList : Type -> Type -> Type
+EitherList a b = List (Either a b)
+
 ListEitherDesc : gamma |- Star =>> Star =>> Star
-ListEitherDesc = Lam $ Lam $ let e = (App (App EitherLam (Val Here)) (Val (There Here)))
-                                 f = App (Lam ListDesc) e in f
+ListEitherDesc = Lam $ Lam $ App (Lam ListDesc) (App (App EitherLam (Val Here)) (Val (There Here)))
 
 ListType : Type -> Type
 ListType = ToType (Lam ListDesc) []

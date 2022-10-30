@@ -1,24 +1,66 @@
 # File 0
 
-Content:
+Welcome to this series of tutorial on dependent types. The goal of this document is to introduce someone to dependently
+typed theories by using and implementing them. The files are written in _literate idris_ code which allows you compile the file
+and play with the code.
 
-- Syntax for data declarations
-- Syntax for functions
-- List and Nat examples
-- List length and Nat addition
+This tutorial is aimed as people who are already familiar with functional programming but not necessarily with dependent types.
 
-## Preamble about syntax
+## Installation
+
+Before we jump into the code, you will need to install Idris & it's associated tools.
+
+There are multiple ways to use Idris with this tutorial:
+
+- Using an editor that supports LSP
+- Using and editor that supports the IDE mode
+- Using the REPL
+
+### Using LSP
+
+You can use any editor that supports LSP, the github page for the idris-lsp project details the installation details.
+Additionally you can use `pack` to install idris and idris-lsp:
+
+LSP editors include VSCode, vim, nvim, emacs, sublime text and more. The editor with the most documentation around it
+LSP support is VSCode and for this reason I suggest you use it.
+
+It is worth noting that VSCode will not identify `.md` files as being idris files. For this, you need to change
+the file type to "literate idris" once you open it in VSCode. This will enable LSP on the code snippets.
+
+### Using IDE mode
+
+You can use the native IDE mode of Idris2. If you use vim, there is a plugin to support IDE mode here. If you use emacs
+there is another plugin here.
+
+### Using the REPL
+
+If you are accustomed to interacting with programs through a REPL, you can use Idris through its repl. For this, run
+`rlwrap idris2 --find-ipkg` in the `src` directory of the project. This will run the idris2 REPL, allow you to use arrow
+movement thanks to `rlwrap` and will compile files that you can load with `:l "src/File0.md"`. Do not forget the quotation
+marks around the filepath.
+
+
+Once you've chosen your editor and installed idris and its tools, we can get started with a short summary of what you need
+to know to use Idris effectively.
+
+## Syntax
 
 This is how we start a new module. This is file number 0 so we are going to call it `File0`
 
 ```idris
 module File0
+```
 
+Because we are going to re-declare some types we will use `%hide` to hide them from the standard library. This way the built-in
+version of those types will not clash with the ones we are going to define now.
+
+```
 %hide Prelude.List
 %hide Prelude.Nat
 %hide List.length
 
 ```
+
 Here is how to define new data structures:
 
 ```idris
@@ -28,7 +70,17 @@ data Nat : Type where
 ```
 
 This represents "natural numbers", the set of whole numbers starting from 0 and increasing from there.
-We will see how this is a very useful data structure for dependent types.
+
+```
+  ┌ keyword to start a data declaration
+  │
+  │          ┌ The signature of the type we are describing
+╭─┴─╮      ╭─┴─╮
+data Nat : Type where
+     ╰┬╯
+      └ The name of the type we are definint
+```
+
 
 Here is a definition of lists:
 
