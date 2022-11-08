@@ -9,8 +9,9 @@ This tutorial is aimed as people who are already familiar with functional progra
 ## Installation
 
 Before we jump into the code, you will need to install Idris & it's associated tools.
+For this I recommend you use [pack](https://github.com/stefan-hoeck/idris2-pack).
 
-There are multiple ways to use Idris with this tutorial:
+Once installed, we can start with the tutorial, there are multiple ways to use Idris with this tutorial:
 
 - Using an editor that supports LSP
 - Using and editor that supports the IDE mode
@@ -26,6 +27,8 @@ LSP support is VSCode and for this reason I suggest you use it.
 
 It is worth noting that VSCode will not identify `.md` files as being idris files. For this, you need to change
 the file type to "literate idris" once you open it in VSCode. This will enable LSP on the code snippets.
+
+You can install the LSP with pack as well
 
 ### Using IDE mode
 
@@ -81,8 +84,22 @@ data Nat : Type where
       └ The name of the type we are definint
 ```
 
+The body of the definition hosts the _constructors_ of the type. `Nat` has two _constructors_ either `Z` which
+represents the number `0`. or `S` which takes a nat in argument and represents the successor of the argument.
 
-Here is a definition of lists:
+```
+  Z : Nat        -- Z for Zero
+  S : Nat -> Nat -- S for Successor
+```
+
+This way `S Z` is the number `1`, `S (S Z)` the number `2` etc.
+
+Nats may seem like an inefficient way to represent numbers but they are very useful because they are defined
+_inductively_ rather than with a array of bits. This makes them particularly suitable for proofs. The compiler
+does the necessary work to represent them as plain `Int` when the program is executed.
+
+
+We move on to a more complicated type: Linked lists, or just `List`:
 
 ```idris
 namespace List
