@@ -77,7 +77,7 @@ return the type of the _argument_ of the application.
 apply_type : Type
 ```
 
-Beacuse we are given `x` and `y` we could just recusrively call `ToType` on y and use the result
+Beacuse we are given `x` and `y` we could just recursively call `ToType` on y and use the result
 to extend the context `xs` in order to have a value of type `Vect (S n) Type` and then
 use `ToType again on `x` with our augmented vector:
 

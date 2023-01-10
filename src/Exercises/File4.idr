@@ -68,3 +68,5 @@ interpret : LC n -> Vect n (LC 0) -> LC 0
 interpret x [] = x
 interpret x (y :: xs) = ?interpret_rhs_1
 
+interpret : LC Z -> IO ()
+

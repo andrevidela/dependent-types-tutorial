@@ -1,3 +1,8 @@
+```idris
+module File6
+
+import Data.Fin
+```
 
 # Lambda Calculus
 
@@ -22,7 +27,7 @@ namespace Lambda
 ```
 
 Just like before we are going to keep track of how many variables are in scope using a `Nat`
-index. Variables come from uses of `Lam` which stands for _lambda_. The name comes from the
+index. Variables emerge from uses of `Lam` which stands for _lambda_. The name comes from the
 greek letter lambda, written λ, and was first used in the first definitions of the lambda
 calculus. An identity function in the lambda calculus is written as `λx. x` where `λ` denotes
 the beginig of a lambda declaration, the dot `.` separates the argument of the function with
@@ -30,9 +35,9 @@ its body and on the right side of the dot is the function body. The syntax can b
 as `λ *argument* . *body*`. Because we are going to use numbers instead of variables we are
 going to write `λ 0` instead of `λx. x` to indicate that the variable is immediately used.
 
-The translatio can be achieved by enumerating successive layers of λ and replacing the variable
-names with their number. here is another example with the function `const` which ignores its
-second argument:
+The translation from variables names to numbers can be achieved by enumerating successive
+layers of λ and replacing the variable names with their number. here is another example with
+the function `const` which ignores its second argument:
 
 ```
 const = λx. λy. x
@@ -40,8 +45,8 @@ const = λx. λy. x
  = λ λ 1
 ```
 
-`App` is just function application so if we want to apply a function to another we have
-to give the function as a first argument to `App` and the argument as the second argument.
+`App` represents function application. To apply a function to another we combine the function
+with its argument using the `App` constructor.
 
 Let's say we have the functions `id = λx. x = λ0` and `const = λx. λy. x = λ λ 1` if we apply `const`
 to `id` we write
@@ -167,6 +172,19 @@ namespace LambdaNat
         -> (zero : LCNat n)
         -> (succ : LCNat (S n))
         -> LCNat n
+    Mu : LCNat (S n) -> LCNat n
+
+  export
+  ($$) : LCNat n -> LCNat n -> LCNat n
+  ($$) = App
+
+  export
+  (\\) : LCNat (S n) -> LCNat n
+  (\\) = Lam
+
+  export
+  fromInteger : (i : Integer) -> {n : Nat} -> {auto 0 check : So (integerLessThanNat i n)} -> LCNat n
+  fromInteger i = Var (fromInteger i)
 ```
 
 I've given names to the different arguments of the `Case` constructor. The first argument is the number
@@ -212,9 +230,29 @@ we need a way to have functions refer to themselves.
 ```idris
 -- λx. λy. case x of Z => y ; (S n) => S (plus n y)
 plus : LCNat 0
-plus = \\ \\ case 0 1 (
+plus = Mu (\\ \\ Case 1 0 (\\ Succ (3 $$ 0 $$ 1)))
 ```
 
+## Evaluate programs
+
+In order to test our functions we need to evaluate them, for this we will use the following substitution:
+
+```
+(λx.f x) y
+=
+f y
+```
+
+```idris
+subst : LCNat n -> Fin n -> LCNat n -> LCNat n
+subst (Var i) index term = if i == index then term else (Var i)
+subst (Lam b) index term = ?lamSub
+subst (App f a) index term = ?appSub
+subst Zero index term = ?zeroSub
+subst (Succ n) index term = ?succSub
+subst (Case n z s) index term = ?caseSubst
+subst (Mu b) index term = ?mySUb
+```
 
 
 A problem with this implementation is that there is nothing stopping us from applying a function to something

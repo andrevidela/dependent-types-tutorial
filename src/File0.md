@@ -57,7 +57,7 @@ module File0
 Because we are going to re-declare some types we will use `%hide` to hide them from the standard library. This way the built-in
 version of those types will not clash with the ones we are going to define now.
 
-```
+```idris
 %hide Prelude.List
 %hide Prelude.Nat
 %hide List.length
