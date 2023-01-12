@@ -1,7 +1,8 @@
 module Exercises.File6
 
-
+import Data.Vect
 import Data.Fin
+
 namespace Lambda
   public export
   data LC : Nat -> Type where
@@ -129,11 +130,21 @@ data Value : LCNat n -> Type where
   SuccValue : Value n -> Value (Succ n)
   LamValue : Value (Lam x)
 
-eval : (expr : LCNat n) -> Maybe (Value expr)
-eval (Var x) = Nothing
-eval (Lam x) = Just LamValue
-eval (App x y) = ?eval_rhs_2
-eval Zero = ?eval_rhs_3
-eval (Succ x) = ?eval_rhs_4
-eval (Case scrutinee zero succ) = ?eval_rhs_5
-eval (Mu x) = ?eval_rhs_6
+data Evaluated : Nat -> Type where
+  IsNat : Nat -> Evaluated n
+  IsLam : (LCNat n -> Evaluated n) -> Evaluated n
+
+eval : (expr : LCNat n) -> (Vect n (LCNat n)) -> (Value expr)
+eval (Var x) ctx = ?www --index x ctx
+eval (Lam x) ctx = LamValue
+eval (App x y) ctx = ?eval_rhs_2
+eval Zero ctx = ZeroValue
+eval (Succ x) ctx = let e = (eval x ctx) in SuccValue e
+eval (Case (Var x) zero succ) ctx = ?eval_rhs_7
+eval (Case (Lam x) zero succ) ctx = ?eval_rhs_8
+eval (Case (App x y) zero succ) ctx = ?eval_rhs_9
+eval (Case Zero zero succ) ctx = ?eval_rhs_10
+eval (Case (Succ x) zero succ) ctx = ?eval_rhs_11
+eval (Case (Case scrutinee x y) zero succ) ctx = ?eval_rhs_12
+eval (Case (Mu x) zero succ) ctx = ?eval_rhs_13
+eval (Mu x) ctx = ?eval_rhs_6
