@@ -16,7 +16,7 @@ infixr 5 =>>
 data (|-) : (0 _ : List LCType) -> (0 _ : LCType) -> Type where
 
   -- a type variable
-  Val : e `Elem` gamma -> gamma |- e
+  Val : gamma `Contains` e -> gamma |- e
 
   -- lambda abstraction
   Lam : a :: gamma |- b
@@ -36,40 +36,34 @@ data (|-) : (0 _ : List LCType) -> (0 _ : LCType) -> Type where
      -> gamma |- b
 
   Zero : gamma |- Nat
+
   Succ : gamma |- Nat
       -> gamma |- Nat
-
---   Times : gamma |- Star
---        -> gamma |- Star
---        -> gamma |- Star
---
---   Plus : gamma |- Star
---       -> gamma |- Star
---       -> gamma |- Star
 
   Mu : a :: gamma |- a
     -> gamma |- a
 
 ext : forall gamma, delta.
-      (forall a. a `Elem` gamma -> a `Elem` delta)
-  -> (forall a, b. a `Elem` (b :: gamma) -> a `Elem` (b :: delta))
+      (forall a.         gamma `Contains` a ->      delta `Contains` a)
+   -> (forall a, b. b :: gamma `Contains` a -> b :: delta `Contains` a)
 ext f Here = Here
 ext f (There x) = There (f x)
 
 rename : forall gamma, delta.
-     (forall a. a `Elem` gamma -> a `Elem` delta)
+     (forall a. gamma `Contains` a -> delta `Contains` a)
     -----------------------
   -> (forall a. gamma |- a -> delta |- a)
-rename f (Val x) = Val (f x)
-rename f (Lam x) = Lam (rename (ext f) x)
-rename f (Case scrutinee ifZero ifSucc) = Case (rename f scrutinee) (rename f ifZero) (rename (ext f) ifSucc)
+rename f (Val x)   = Val (f x)
+rename f (Lam x)   = Lam (rename (ext f) x)
 rename f (App x y) = App (rename f x) (rename f y)
-rename f Zero = Zero
-rename f (Succ n) = Succ (rename f n)
-rename f (Mu x) = Mu (rename (ext f) x)
+rename f Zero      = Zero
+rename f (Succ n)  = Succ (rename f n)
+rename f (Mu x)    = Mu (rename (ext f) x)
+rename f (Case scrutinee ifZero ifSucc) =
+  Case (rename f scrutinee) (rename f ifZero) (rename (ext f) ifSucc)
 
 exts : forall gamma, delta.
-       (forall a. gamma `Contains` a -> delta |- a)
+       (forall a.         gamma `Contains` a -> delta |- a)
     -> (forall a, b. b :: gamma `Contains` a -> b :: delta |- a)
 exts f Here = Val Here
 exts f (There x) = rename There (f x)
@@ -77,19 +71,19 @@ exts f (There x) = rename There (f x)
 subst : forall gamma, delta.
         (forall a. gamma `Contains` a -> delta |- a)
      -> (forall a. gamma |-         a -> delta |- a)
-subst f (Val x) = f x
-subst f (Lam x) = Lam (subst (exts f) x)
-subst f (Case scrutinee ifZero ifSucc) = Case (subst f scrutinee) (subst f ifZero) (subst (exts f) ifSucc)
+subst f (Val x)   = f x
+subst f (Lam x)   = Lam (subst (exts f) x)
 subst f (App x y) = App (subst f x) (subst f y)
-subst f Zero = Zero
-subst f (Succ x) = Succ (subst f x)
-subst f (Mu x) = Mu (subst (exts f) x)
+subst f Zero      = Zero
+subst f (Succ x)  = Succ (subst f x)
+subst f (Mu x)    = Mu (subst (exts f) x)
+subst f (Case scrutinee ifZero ifSucc) = Case (subst f scrutinee) (subst f ifZero) (subst (exts f) ifSucc)
 
 subst1 : forall gamma, a, b.
-     b :: gamma |- a
-  -> gamma |- b
-    ---------
-  -> gamma |- a
+         b :: gamma |- a
+      -> gamma |- b
+        ---------
+      -> gamma |- a
 subst1 x y = subst (\case Here => y
                           (There z) => Val z) x
 
