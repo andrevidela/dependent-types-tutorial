@@ -19,46 +19,45 @@ infixl 0 $$
 ($$) : Expr n -> Expr n -> Expr n
 ($$) x y = App x y
 
-ext : (Fin n -> Fin m) -> Fin (S n) -> Fin (S m)
+ext : (Fin n -> Fin m)
+   -> (Fin (S n) -> Fin (S m))
 ext f FZ = FZ
 ext f (FS x) = FS (f x)
 
-rename : (Fin n -> Fin m) -> Expr n -> Expr m
-rename f (App fn arg) = App (rename f fn) (rename f arg)
-rename f (Lam x) = Lam (rename (ext f) x)
-rename f Zero = Zero
-rename f (Succ x) = Succ (rename f x)
-rename f (Var x) = Var (f x)
+rename :
+     (Fin n -> Fin m)
+    -----------------------
+  -> (Expr n -> Expr m)
+rename f (Var x)   = Var (f x)
+rename f (Lam x)   = Lam (rename (ext f) x)
+rename f (App x y) = App (rename f x) (rename f y)
+rename f Zero      = Zero
+rename f (Succ n)  = Succ (rename f n)
+rename f (Mu x)    = Mu (rename (ext f) x)
 rename f (Case scrutinee ifZero ifSucc) =
   Case (rename f scrutinee) (rename f ifZero) (rename (ext f) ifSucc)
-rename f (Mu x) = Mu (rename (ext f) x)
 
--- subst : (at : Fin n) -> (with_ : Expr n) -> (inside : Expr n) -> Expr n
--- subst i wth (App x y) = App (subst i wth x) (subst i wth y)
--- subst i wth (Lam x) = Lam (subst {n = S n} (FS i) (rename FS wth) x) --(subst (FS n) wth (?weaken x))
--- subst i wth Zero = Zero
--- subst i wth (Succ x) = Succ (subst i wth x)
--- subst i wth (Var k) = if k == i then wth else Var k
--- subst i wth (Case x y z) = Case (subst i wth x) (subst i wth y) (subst {n = S n} (FS i) (rename FS wth) z)
--- subst i wth (Mu x) = Mu (subst (FS i) (rename FS wth) x)
+exts : (Fin n -> Expr m)
+    -> (Fin (S n) -> Expr (S m))
+exts f FZ = Var FZ
+exts f (FS x) = rename FS (f x)
 
-substContext : Vect n (Expr m) -> Expr n -> Expr m
-substContext ctx (App fn arg) = App (substContext ctx fn) (substContext ctx arg)
-substContext ctx (Lam x)      = Lam (substContext (Var FZ :: map (rename FS) ctx) x)
-substContext ctx Zero         = Zero
-substContext ctx (Succ x)     = Succ (substContext ctx x)
-substContext ctx (Var x)      = index x ctx
-substContext ctx (Mu x)       = Mu (substContext (Var FZ :: map (rename FS) ctx) x)
-substContext ctx (Case scrutinee ifZero ifSucc) =
-  Case (substContext ctx scrutinee) (substContext ctx ifZero) (substContext (Var FZ :: map (rename FS) ctx) ifSucc)
+subst : (Fin n -> Expr m)
+     -> (Expr n -> Expr m)
+subst f (Var x)   = f x
+subst f (Lam x)   = Lam (subst (exts f) x)
+subst f (App x y) = App (subst f x) (subst f y)
+subst f Zero      = Zero
+subst f (Succ x)  = Succ (subst f x)
+subst f (Mu x)    = Mu (subst (exts f) x)
+subst f (Case scrutinee ifZero ifSucc) = Case (subst f scrutinee) (subst f ifZero) (subst (exts f) ifSucc)
 
-exprRange : {n : Nat} -> Vect n (Expr n)
-exprRange = map Var range
+subst0 : (with_ : Expr n) ->(inside : Expr (S n)) ->  Expr n
+subst0 y x = subst (\case FZ => y; (FS n) => Var n) x
 
-subst0 : {n : _} -> (with_ : Expr m) -> (inside : Expr (S n)) -> Expr m
-subst0 with_ inside = substContext (with_ :: ?whui) inside
+substCtx : Vect n (Expr m) -> Expr n -> Expr m
+substCtx xs x = subst (\i => index i xs) x
 
-{-
 eval : {n : _} -> Expr n -> Expr n
 eval (App f x) =
   case eval f of
@@ -72,10 +71,7 @@ eval (Mu x)   = subst0 (Mu x) x
 eval (Case sc ifZero ifSucc) =
   case eval sc of
        Zero  => eval ifZero
-       Succ n => subst0 n ifSucc
-          -- case eval ifSucc of
-          --      Lam body => assert_total $ eval (subst0 { inside = ?bbb, with_ = n})
-          --      other => App ?nnn n --App other ?aan
+       Succ n => assert_total $ eval $ subst0 n ifSucc
        x => Case x ifZero ifSucc
 
 fromInteger : Integer -> Expr n
@@ -86,7 +82,7 @@ fromInteger i = natToExpr (fromInteger i)
     natToExpr (S n) = Succ (natToExpr n)
 
 evalTest1 : eval (App (Lam (Var 0)) (Succ Zero)) = Succ Zero
--- evalTest1 = Refl
+evalTest1 = Refl
 
 add : Expr n
 add = Mu $ Lam $ Lam $ Case (Var 1) (Var 0) (Lam (Var 4 $$ Var 0 $$ Succ (Var 2)))
@@ -95,8 +91,8 @@ const : Expr n
 const = Lam $ Lam (Var 0)
 
 constTest : ScopedInterpreter.eval (ScopedInterpreter.const $$ 3 $$ 2) = 2
--- constTest = Refl
+constTest = Refl
 
-addTest : eval (ScopedInterpreter.add $$ 2 $$ 3) =  5
-addTest = ?asd
+addTest : eval (ScopedInterpreter.add $$ 2 $$ 3) = 5
+addTest = ?adddddd
 

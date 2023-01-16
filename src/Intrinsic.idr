@@ -95,49 +95,70 @@ data Value : g |- a -> Type where
 infixr 0 ~~>
 
 data (~~>) : forall gamma, a. gamma |- a -> gamma |- a -> Type where
+  -- congruence-like rules
+  CongApp1 : forall gamma, a, b.
+             {0 l, l' : gamma |- a =>> b}
+          -> {0 m : gamma |- a}
+          -> (l ~~> l') -> (App l m ~~> App l' m)
 
--- congruence-like rules
-CongApp1 : forall gamma, a, b.
-           {0 l, l' : gamma |- a =>> b}
-        -> {0 m : gamma |- a}
-        -> (l ~~> l') -> (App l m ~~> App l' m)
+  CongApp2 : forall gamma, a, b.
+             {0 v : gamma |- a =>> b}
+          -> {0 m, m' : gamma |- a}
+          -> Value {g = gamma, a = a =>> b} v
+          -> (m ~~> m')
+          -> (App v m ~~> App v m')
+  CongSucc : forall gamma.
+             {0 m, m' : gamma |- Nat}
+          -> (m ~~> m')
+          -> Succ m ~~> Succ m'
 
-CongApp2 : forall gamma, a, b.
-           {0 v : gamma |- a =>> b}
-        -> {0 m, m' : gamma |- a}
-        -> Value {g = gamma, a = a =>> b} v
-        -> (m ~~> m')
-        -> (App v m ~~> App v m')
-CongSucc : forall gamma.
-           {0 m, m' : gamma |- Nat}
-        -> (m ~~> m')
-        -> Succ m ~~> Succ m'
+  CongCase : forall gamma, a.
+             {0 l, l' : gamma |- Nat}
+          -> {0 m : gamma |- a}
+          -> {0 n : Nat :: gamma |- a}
+          -> l ~~> l'
+          -> Case l m n ~~> Case l' m n
 
-CongCase : forall gamma, a.
-           {0 l, l' : gamma |- Nat}
-        -> {0 m : gamma |- a}
-        -> {0 n : Nat :: gamma |- a}
-        -> l ~~> l'
-        -> Case l m n ~~> Case l' m n
+  -- beta-like rules
+  BetaLam : forall gamma, a, b.
+            {0 n : a :: gamma |- b}
+         -> {0 w : gamma |- a}
+         -> Value w
+         -> App (Lam n) w ~~> subst1 n w
 
--- beta-like rules
-BetaLam : forall gamma, a, b.
-          {0 n : a :: gamma |- b}
-       -> {0 w : gamma |- a}
-       -> Value w
-       -> App (Lam n) w ~~> subst1 n w
+  BetaZero : forall gamma, a.
+             {0 m : gamma |- a}
+          -> {0 n : Nat :: gamma |- a}
+          -> Case Zero m n ~~> m
 
-BetaZero : forall gamma, a.
-           {0 m : gamma |- a}
-        -> {0 n : Nat :: gamma |- a}
-        -> Case Zero m n ~~> m
+  BetaSucc : forall gamma, a.
+             {0 v : gamma |- Nat}
+          -> {0 m : gamma |- a}
+          -> {0 n : Nat :: gamma |- a}
+          -> Value v
+          -> Case (Succ v) m n ~~> subst1 n v
 
-BetaSucc : forall gamma, a.
-           {0 v : gamma |- Nat}
-        -> {0 m : gamma |- a}
-        -> {0 n : Nat :: gamma |- a}
-        -> Value v
-        -> Case (Succ v) m n ~~> subst1 n v
-BetaMu : forall gamma, a.
-         {0 n : a :: gamma |- a}
-      -> Mu n ~~> subst1 n (Mu n)
+  BetaMu : forall gamma, a.
+           {0 n : a :: gamma |- a}
+        -> Mu n ~~> subst1 n (Mu n)
+
+total
+eval : gamma |- a -> gamma |- a
+eval (Val x) = Val x
+eval (App x y) = case eval x of
+     Lam n => assert_total $ eval (subst1 n y)
+     other => App other y
+eval (Lam x) = Lam x
+eval (Mu x) = subst1 x (Mu x)
+eval Zero = Zero
+eval (Succ x) = Succ x
+eval (Case scrutinee ifZero ifSucc) =
+  case eval scrutinee of
+       (Val x) => ?asoijoij_0
+       (Case x y z) => ?asoijoij_1
+       (App x y) => ?asoijoij_2
+       Zero => ?asoijoij_3
+       (Succ x) => ?asoijoij_4
+       (Mu x) => ?asoijoij_5
+
+
