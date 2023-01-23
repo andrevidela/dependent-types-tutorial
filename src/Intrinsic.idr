@@ -154,11 +154,69 @@ eval Zero = Zero
 eval (Succ x) = Succ x
 eval (Case scrutinee ifZero ifSucc) =
   case eval scrutinee of
-       (Val x) => ?asoijoij_0
-       (Case x y z) => ?asoijoij_1
-       (App x y) => ?asoijoij_2
-       Zero => ?asoijoij_3
-       (Succ x) => ?asoijoij_4
-       (Mu x) => ?asoijoij_5
+       Zero => ifZero
+       (Succ x) => assert_total $ eval $ App (Lam ifSucc) x
+       other => Case scrutinee ifZero ifSucc
+
+infixl 0 $$
+
+($$) : {a : _}
+     -> gamma |- a =>> b
+     -> gamma |- a
+      ------------------
+     -> gamma |- b
+($$) x y = App x y
 
 
+evalTest1 : eval (App (Lam (Val Here)) (Succ Zero)) = Succ Zero
+evalTest1 = Refl
+
+add : gamma |- Nat =>> Nat =>> Nat
+add = Mu $ Lam $ Lam $ Case (Val Here)
+  (Val (There Here)) -- if zero return the first
+  (Lam (Lam (Val (There $ There $ There $ There $ Here)))
+    $$ Val Here -- recursive call with the smaler first argument
+    $$ Succ (Val (There $ There Here))) -- and increase the second argument
+
+add2 : gamma |- Nat =>> Nat =>> Nat
+add2 = Mu $ Lam $ Lam $ Case (Val $ There Here) -- analyse the second argument
+  (Val (Here)) -- if zero return the first
+  (Lam (Lam (Val (There $ There $ There $ There $ Here)))
+    $$ Succ (Val (There $ There Here))  -- recursivecall with the successor of the first argument
+    $$ Val Here)                -- and the smaller second argument
+-- add = Mu $ Lam $ Lam $ Case (Val (There Here)) (Val Here) (Lam (Val (There $ There $ There $ There $ Here) $$ Val Here $$ Succ (Val (There $ There $ Here))))
+
+const : b :: a :: gamma |- a
+const = (Val (There Here))
+
+const' : gamma |- a =>> b =>> a
+const' = Lam $ Lam (Val (There Here))
+
+constTest : Intrinsic.eval (Lam (Lam Intrinsic.const) $$ Zero $$ (Succ Zero)) = Zero
+constTest = Refl
+
+constTest2 : Intrinsic.eval (Lam (Lam (Val $ There Here)) $$ Zero $$ (Succ Zero)) = Zero
+constTest2 = Refl
+
+constTest3 : Intrinsic.eval (Intrinsic.const' $$ Zero $$ (Succ Zero)) = Zero
+constTest3 = Refl
+
+addTest : eval (Intrinsic.add $$ (Succ (Succ Zero)) $$ (Succ $ Succ Zero)) = (Succ $ Succ $ Succ $ Succ Zero)
+addTest = ?adddddd
+
+
+lt : Nat -> Nat -> Bool
+lt Z n = True
+lt (S m) (S n) = lt m n
+lt _ _ = False
+
+
+t : Nat -> Type
+t n = if (S Z `lt` n )
+  then Nat
+  else (Nat, Nat)
+
+f : (n : Nat) -> t n
+f n with (S Z `lt` n) proof p
+  f n | True = 0
+  f n | False = (1, 2)

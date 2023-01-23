@@ -1,4 +1,4 @@
-module Mid
+module Scoped2
 
 import Data.Fin
 import Data.Vect
@@ -80,4 +80,45 @@ subst1 x y = subst (\case FZ => y; (FS n) => Val n) x
 
 substCtx : Vect n (Expr m) -> Expr n -> Expr m
 substCtx xs x = subst (\i => index i xs) x
+
+fromInteger : Integer -> Expr n
+fromInteger i = natToExpr (fromInteger i)
+  where
+    natToExpr : Nat -> Expr n
+    natToExpr Z = Zero
+    natToExpr (S n) = Succ (natToExpr n)
+
+infixl 0 $$
+
+($$) : Expr n -> Expr n -> Expr n
+($$) x y = App x y
+
+partial
+eval : Expr n -> Expr n
+eval (Val x) = Val x
+eval (Lam x) = Lam x
+eval (Case Zero ifZero ifSucc) = eval ifZero
+eval (Case (Succ x) ifZero ifSucc) = eval $ App (Lam ifSucc) x
+eval (Case other ifZero ifSucc) = assert_total $ idris_crash "stuck"
+eval (App f x) = case eval f of
+  Lam body => eval (subst1 body x)
+  other =>  App other x
+eval Zero = Zero
+eval (Succ x) = Succ x
+eval (Mu x) = subst1 x (Mu x)
+
+evalTest1 : eval (App (Lam (Val 0)) (Succ Zero)) = Succ Zero
+evalTest1 = Refl
+
+add : Expr n
+add = Mu $ Lam $ Lam $ Case (Val 1) (Val 0) (Lam (Val 4 $$ Val 0 $$ Succ (Val 2)))
+
+const : Expr n
+const = Lam $ Lam (Val 0)
+
+constTest : Scoped2.eval (Scoped2.const $$ 3 $$ 2) = 2
+constTest = Refl
+
+addTest : eval ((Scoped2.add $$ 2) $$ 3) = 5
+addTest = ?adddddd
 
