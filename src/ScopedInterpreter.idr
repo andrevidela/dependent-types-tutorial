@@ -71,7 +71,7 @@ eval (Mu x)   = subst0 (Mu x) x
 eval (Case sc ifZero ifSucc) =
   case eval sc of
        Zero  => eval ifZero
-       Succ n => assert_total $ eval $ subst0 n ifSucc
+       Succ n => assert_total $ eval $ subst0 n (eval ifSucc)
        x => Case x ifZero ifSucc
 
 fromInteger : Integer -> Expr n
@@ -85,7 +85,26 @@ evalTest1 : eval (App (Lam (Var 0)) (Succ Zero)) = Succ Zero
 evalTest1 = Refl
 
 add : Expr n
-add = Mu $ Lam $ Lam $ Case (Var 1) (Var 0) (Lam (Var 4 $$ Var 0 $$ Succ (Var 2)))
+add = Mu $ Lam $ Lam $ Case (Var 1) (Var 0) ((Var 3 $$ Var 0 $$ Succ (Var 1)))
+
+double : Expr n
+double = Mu $ Lam $ Case (Var 0) Zero (Lam (Var 3 $$ Succ (Succ (Var 0))))
+
+identity : Expr n
+identity = Lam (Var 0)
+
+natIdentity : Expr n
+natIdentity = Lam $ Case (Var 0) Zero (Succ (Var 0))
+
+testNatId : ScopedInterpreter.eval (ScopedInterpreter.natIdentity $$ 2) = 2
+testNatId = Refl
+
+testIdentity :  ScopedInterpreter.eval (ScopedInterpreter.identity $$ ScopedInterpreter.identity) = ScopedInterpreter.identity
+testIdentity = Refl
+
+
+testDouble : ScopedInterpreter.eval (ScopedInterpreter.double $$ 2) = 4
+testDouble = ?ww
 
 const : Expr n
 const = Lam $ Lam (Var 0)
@@ -94,5 +113,11 @@ constTest : ScopedInterpreter.eval (ScopedInterpreter.const $$ 3 $$ 2) = 2
 constTest = Refl
 
 addTest : eval (ScopedInterpreter.add $$ 2 $$ 3) = 5
-addTest = ?adddddd
+addTest = Refl
+
+fail : Expr n
+fail = double $$ identity
+
+testFail : ScopedInterpreter.eval ScopedInterpreter.fail = 0
+testFail = ?hole
 

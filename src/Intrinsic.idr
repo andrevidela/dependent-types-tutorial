@@ -142,6 +142,28 @@ data (~~>) : forall gamma, a. gamma |- a -> gamma |- a -> Type where
            {0 n : a :: gamma |- a}
         -> Mu n ~~> subst1 n (Mu n)
 
+evalPrf : (start : gamma |- a) -> start ~~> end -> (end' : gamma |- a ** end = end')
+evalPrf (App l m) (CongApp1 x) =
+  case evalPrf l x of
+       (y ** y') => (App y m ** rewrite y' in Refl)
+evalPrf (App v m) (CongApp2 x y) =
+  case evalPrf m y of
+       (z ** z') => (App v z ** rewrite z' in Refl)
+evalPrf (Succ m) (CongSucc x) =
+  case evalPrf m x of
+       (y ** y') => (Succ y ** cong Succ y')
+evalPrf (Case l m n) (CongCase x) =
+  case evalPrf l x of
+       (y ** y') => (Case y m n ** rewrite y' in Refl)
+evalPrf (App (Lam n) w) (BetaLam x) =
+  (subst1 n w ** Refl)
+evalPrf (Case Zero end n) BetaZero =
+  (end ** Refl)
+evalPrf (Case (Succ v) m n) (BetaSucc x) =
+  (subst1 n v ** Refl)
+evalPrf (Mu n) BetaMu =
+  (subst1 n (Mu n) ** Refl)
+
 total
 eval : gamma |- a -> gamma |- a
 eval (Val x) = Val x
@@ -149,13 +171,13 @@ eval (App x y) = case eval x of
      Lam n => assert_total $ eval (subst1 n y)
      other => App other y
 eval (Lam x) = Lam x
-eval (Mu x) = subst1 x (Mu x)
+eval (Mu x) = assert_total $ (subst1 x (Mu x))
 eval Zero = Zero
 eval (Succ x) = Succ x
 eval (Case scrutinee ifZero ifSucc) =
   case eval scrutinee of
        Zero => ifZero
-       (Succ x) => assert_total $ eval $ App (Lam ifSucc) x
+       (Succ x) => assert_total $ eval (subst1 ifSucc x)
        other => Case scrutinee ifZero ifSucc
 
 infixl 0 $$
@@ -167,6 +189,21 @@ infixl 0 $$
      -> gamma |- b
 ($$) x y = App x y
 
+plus1 : gamma |- Nat =>> Nat
+plus1 = Lam (Succ (Val Here))
+
+double : gamma |- Nat =>> Nat
+double = Mu $ Lam $ Case (Val Here)
+  Zero
+  (plus1 $$ (plus1 $$ Val Here))
+
+testDouble : eval (Intrinsic.double $$ (Succ (Succ Zero))) === (Succ (Succ (Succ (Succ Zero))))
+testDouble = ?testDouble_rhs
+
+{-
+
+identity : gamma |- a =>> a
+identity = Lam (Val Here)
 
 evalTest1 : eval (App (Lam (Val Here)) (Succ Zero)) = Succ Zero
 evalTest1 = Refl
@@ -178,13 +215,15 @@ add = Mu $ Lam $ Lam $ Case (Val Here)
     $$ Val Here -- recursive call with the smaler first argument
     $$ Succ (Val (There $ There Here))) -- and increase the second argument
 
+-- add : Expr n
+-- add = Mu $ Lam $ Lam $ Case (Var 1) (Var 0) ((Var 3 $$ Var 0 $$ Succ (Var 1)))
+
 add2 : gamma |- Nat =>> Nat =>> Nat
-add2 = Mu $ Lam $ Lam $ Case (Val $ There Here) -- analyse the second argument
-  (Val (Here)) -- if zero return the first
+add2 = Mu $ Lam $ Lam $ Case (Val $ There Here) -- analyse the first argument
+  (Val Here) -- if zero return the second
   (Lam (Lam (Val (There $ There $ There $ There $ Here)))
     $$ Succ (Val (There $ There Here))  -- recursivecall with the successor of the first argument
     $$ Val Here)                -- and the smaller second argument
--- add = Mu $ Lam $ Lam $ Case (Val (There Here)) (Val Here) (Lam (Val (There $ There $ There $ There $ Here) $$ Val Here $$ Succ (Val (There $ There $ Here))))
 
 const : b :: a :: gamma |- a
 const = (Val (There Here))
