@@ -141,7 +141,7 @@ namespace Scoped
     Zero : CFT n
     Plus : CFT n -> CFT n -> CFT n
     Times : CFT n -> CFT n -> CFT n
-    Apply : CFT (S n) -> CFT n -> CFT n
+    Let : (expr : CFT n) -> (body : CFT (S n)) ->  CFT n
 
   ToType : CFT n -> Vect n Type  -> Type
   ToType (Var x) xs = index x xs
@@ -150,9 +150,9 @@ namespace Scoped
   ToType (Mu x) xs = Fix (ToType x . (:: xs))
   ToType (Plus x y) xs = Either (ToType x xs) (ToType y xs)
   ToType (Times x y) xs = Pair (ToType x xs) (ToType y xs)
-  ToType (Apply x y) xs =
-    let arg = ToType y xs -- first we compute the argument
-    in ToType x (arg :: xs) -- then we extend the context and compute x
+  ToType (Let var body) xs =
+    let arg = ToType var xs -- first we compute the argument
+    in ToType body (arg :: xs) -- then we extend the context and compute x
 
   MaybeDesc : CFT 1
   MaybeDesc = Plus One (Var 0)
@@ -164,7 +164,7 @@ namespace Scoped
     fail : CFT 1
     fail = Apply Identity MaybeDesc
 
-  ListDesc : CFT 1
+  ListDesc : CFT (S n)
   ListDesc = Mu (Plus One (Times (Var 1) (Var 0)))
 
   ListEither : Type -> Type -> Type
@@ -174,18 +174,17 @@ namespace Scoped
   EitherDesc = Plus (Var 0) (Var 1)
 
   ListEitherDesc : CFT 2
-  -- ListEitherDesc = Apply ListDesc EitherDesc
+  ListEitherDesc = Let EitherDesc ListDesc
 
+  -- not illegal anymore, we're just bringing a `Zero` into scope
   Illegal : CFT 0
-  Illegal = Apply One Zero
+  Illegal = Let Zero One
 
   IllegalType : Type
   IllegalType = ToType Illegal []
 
   IllegalValue : IllegalType
-  IllegalValue = ?aa
-
-  {-
+  IllegalValue = ()
 
   ListType : Type -> Type
   ListType x = ToType ListDesc [x]
@@ -197,7 +196,7 @@ namespace Scoped
   ListCons x xs = Rec (Right (MkPair x xs))
 
   NatDesc : CFT 0
-  NatDesc = Apply ListDesc One
+  NatDesc = Let One ListDesc
 
   NatType : Type
   NatType = ToType NatDesc []
@@ -209,7 +208,7 @@ namespace Scoped
   NatSucc = ListCons ()
 
   ListNatType : Type
-  ListNatType = ToType (Apply ListDesc NatDesc) []
+  ListNatType = ToType (Let NatDesc ListDesc) []
 
   ZeroOneTwo : ListNatType
   ZeroOneTwo = ListCons NatZero
@@ -247,40 +246,23 @@ namespace Scoped
   SuccGen : NatGen -> NatGen
   SuccGen = GenCons ()
 
+  GenericRoseDesc : CFT 2
+  GenericRoseDesc = Mu $ Let (Let (Var 1) (Var 0)) ListDesc
 
-{-
-  GenericRoseDesc : CFT 1
-  GenericRoseDesc = Mu $ Apply ListDesc (Apply (Var 0) (Var 1))
+  RoseDesc : CFT 1
+  RoseDesc = Let ListDesc GenericRoseDesc
 
-  RoseType : Type -> Type
-  RoseType x = ToType RoseDesc [x]
+  RoseTree : Type -> Type
+  RoseTree x = ToType RoseDesc [x]
 
-  RoseNil' : RoseType a
+  RoseNil' : RoseTree a
   RoseNil' = Rec ListNil
 
-  Rose : Type -> Type
-  Rose = GenericRose List
-
-  RoseNil : Rose a
-  RoseNil = []
-
-  RoseNest : List (Rose a) -> Rose a
-  -- RoseNest xs = ?add
+  RoseAdd : a -> RoseTree a -> RoseTree a
+  RoseAdd x (Rec xs) = Rec (ListCons (Rec (Right (x, Rec (Left ())))) xs )
 
 
 {-
-  EitherDesc : CFT 2
-  EitherDesc = Var 0 `Plus` Var 1
-
-  Either : Vect 2 Type -> Type
-  Either ctx = ToType EitherDesc ctx
-
-  DLeft : a -> Either [a, b]
-  DLeft x = Left x
-
-  DRight : b -> Either [a, b]
-  DRight x = Right x
-
   ListDesc : CFT 1
   ListDesc = Mu (One `Plus` (Var 1 `Times` Var 0))
 
