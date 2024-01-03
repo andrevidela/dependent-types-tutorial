@@ -1,50 +1,140 @@
-# File 0
+# Chapter 0
 
 Welcome to this series of tutorial on dependent types. The goal of this document is to introduce someone to dependently
 typed theories by using and implementing them. The files are written in _literate idris_ code which allows you compile the file
 and play with the code.
 
-This tutorial is aimed as people who are already familiar with functional programming but not necessarily with dependent types.
+This tutorial is aimed as people who are already familiar with functional programming but not necessarily with dependent types. You will need to be familiar with idris/haskell/ml syntax to understand the code and write your own solutions.
 
 ## Installation
 
-Before we jump into the code, you will need to install Idris & it's associated tools.
-For this I recommend you use [pack](https://github.com/stefan-hoeck/idris2-pack).
+Before we jump into the code, you will need to install Idris & its associated tools.
+For this I recommend you use [pack](https://github.com/stefan-hoeck/idris2-pack). 
 
 Once installed, we can start with the tutorial, there are multiple ways to use Idris with this tutorial:
 
-- Using an editor that supports LSP
-- Using and editor that supports the IDE mode
-- Using the REPL
+- If you are using `pack`, install the LSP server with `pack install-app idris2-lsp`, and use an editor that supports LSP, for example:
+    - [VSCode](https://code.visualstudio.com) with the associated [lsp plugin](https://github.com/bamboo/idris2-lsp-vscode)
+    - [neovim](https://neovim.io) with [idris2 integration](https://github.com/ShinKage/idris2-nvim)
+- Using and editor that supports the IDE mode:
+    - [idris2-mode for emacs](https://github.com/idris-community/idris2-mode)
+    - [idris2-mode for vim](https://github.com/edwinb/idris2-vim)
+- Using the [REPL](https://idris2.readthedocs.io/en/latest/tutorial/interactive.html#editing-at-the-repl)
 
-### Using LSP
+## Using the REPL
 
-You can use any editor that supports LSP, the github page for the idris-lsp project details the installation details.
-Additionally you can use `pack` to install idris and idris-lsp:
+Using the REPL is the least infrastructure-heavy solution, if you are not familiar with LSP or compiler plugins, I suggest you stick with the REPL.
 
-LSP editors include VSCode, vim, nvim, emacs, sublime text and more. The editor with the most documentation around it
-LSP support is VSCode and for this reason I suggest you use it.
+Because the REPL does not support arrow movement, I also suggest you install `rlwrap` using your system's package manager.
 
-It is worth noting that VSCode will not identify `.md` files as being idris files. For this, you need to change
-the file type to "literate idris" once you open it in VSCode. This will enable LSP on the code snippets.
+To invoke the repl with the project'd settings, you need to go into the `src` directory and call `rlwrap idris2 --find-ipkg`. This will invoke the REPL and you should see
 
-You can install the LSP with pack as well
+```
+     ____    __     _         ___
+    /  _/___/ /____(_)____   |__ \
+    / // __  / ___/ / ___/   __/ /     Version 0.7.0
+  _/ // /_/ / /  / (__  )   / __/      https://www.idris-lang.org
+ /___/\__,_/_/  /_/____/   /____/      Type :? for help
 
-### Using IDE mode
+Welcome to Idris 2.  Enjoy yourself!
+Main>
+```
 
-You can use the native IDE mode of Idris2. If you use vim, there is a plugin to support IDE mode here. If you use emacs
-there is another plugin here.
+You can now load files, this will compile them and allow you to ask questions about them. For example, to load this file, type `:l src/File0.idr.md`. You should see
 
-### Using the REPL
+```
+Main> :l "src/File0.idr.md"
+1/1: Building File0 (src/File0.idr.md)
+Loaded file src/File0.idr.md
+File0>
+```
 
-If you are accustomed to interacting with programs through a REPL, you can use Idris through its repl. For this, run
-`rlwrap idris2 --find-ipkg` in the `src` directory of the project. This will run the idris2 REPL, allow you to use arrow
-movement thanks to `rlwrap` and will compile files that you can load with `:l "src/File0.md"`. Do not forget the quotation
-marks around the filepath.
+Now you can ask the type of definitions in scope with `:t`. For example, to get the type of the `putStrLn` function that prints some text in the console, type: `:t putStrLn` and you should get
 
+```
+File0> :t putStrLn
+Prelude.putStrLn : HasIO io => String -> io ()
+```
 
-Once you've chosen your editor and installed idris and its tools, we can get started with a short summary of what you need
-to know to use Idris effectively.
+If you changed the file and want to recompile it, use `:r` or `:reload`.
+
+If you see a syntax construct that you don't know about, or forgot, try to ask for their documentation with `:doc`, for example:
+
+```
+File0> :doc infixl
+Fixity declarations:
+
+  Operators can be assigned a priority level and associativity. During parsing
+  operators with a higher priority will collect their arguments first and the
+  declared associativity will inform how subterms are grouped.
+
+  For instance the expression `a + b * c * d + e` is parsed as
+  `(a + ((b * c) * d)) + e` because:
+    `(+)` is at level 8 and associates to the left
+    `(*)` is at level 9 and associates to the left
+```
+
+`:doc` also works for your own definitions & library definitions, and will give you some more information beside the type `:doc putStrLn`:
+
+```
+File0> :doc putStrLn
+Prelude.putStrLn : HasIO io => String -> io ()
+  Output a string to stdout with a trailing newline.
+  Totality: total
+  Visibility: export
+```
+```
+File0> :doc IO
+data PrimIO.IO : Type -> Type
+  The internal representation of I/O computations.
+  Totality: total
+  Visibility: export
+  Constructor: MkIO : (1 _ : PrimIO a) -> IO a
+  Hints:
+    Applicative IO
+    Functor IO
+    HasLinearIO IO
+    Monad IO
+```
+
+If you type an expression in the REPL like the string `"Hello World"`, you will only get the value printed out
+
+```
+File0> "Hello World"
+"Hello World"
+```
+
+You can set the `showyypes` option to see the type of the expression
+
+```
+File0> :set showtypes
+File0> "Hello World Again"
+"Hello World Again" : String
+```
+
+If you are looking for a function from a module, but you cannot quite remember the name, you can look at all the definitions exported by a module by using `browse`.
+
+```
+:browse Prelude
+```
+
+The above will show all the functions exported by `Prelude`, the standard library of Idris.
+
+If you write a program that interacts with the system using `IO` and want to run it, you need to use `:exec`
+
+```
+File0> :exec putStrLn "hello"
+hello
+```
+
+### Recap
+
+- `:t` to get the type of something.
+- `:l` to load a file.
+- `:r` to reload a file.
+- `:doc` to obtain documentation.
+- `:browse` to see all the definitions of a module.
+- `:exec` to execute `IO` programs.
 
 ## Syntax
 
@@ -59,14 +149,13 @@ version of those types will not clash with the ones we are going to define now.
 
 ```idris
 %hide Prelude.List
-%hide Prelude.Nat
 %hide List.length
 
 ```
 
 Here is how to define new data structures:
 
-```idris
+```
 data Nat : Type where
   Z : Nat        -- Z for Zero
   S : Nat -> Nat -- S for Successor
@@ -194,7 +283,7 @@ is a lot more readable.
 Finally, using `Z` and `S` in order to write numbers is quickly becoming tedious, so we are going to make use of another feature from Idris
 in order to convert number that you type into values of `Nat`.
 
-```idris
+```
 fromInteger : Integer -> Nat
 fromInteger x = if x <= 0 then Z else S (fromInteger (x - 1))
 ```
